@@ -41,6 +41,9 @@ done
 
 node --check "$root/scripts/manifest.mjs"
 node "$root/scripts/test-usage-analytics.mjs"
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -File "$root/scripts/test-powershell-whatif.ps1"
+fi
 "$root/scripts/test-macos-lifecycle.sh" "$tmp/host" "$tmp/sidebar"
 
 while IFS= read -r -d '' file; do
