@@ -7,6 +7,7 @@
 <p align="center">
   <a href="README.md">简体中文</a> ·
   <strong>English</strong> ·
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0">v0.2.0</a> ·
   <a href="#quick-install">Quick install</a> ·
   <a href="INSTALL.en.md">Full install guide</a> ·
   <a href="SECURITY.md">Security</a> ·
@@ -15,14 +16,14 @@
 
 <p align="center">
   <a href="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml"><img src="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml/badge.svg" alt="Verify patches"></a>
-  <img src="https://img.shields.io/badge/status-release%20candidate-d97706?style=flat-square" alt="Release candidate">
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-16a34a?style=flat-square" alt="v0.2.0 release"></a>
   <img src="https://img.shields.io/badge/DSH-0.1.0--rc.6%20only-111827?style=flat-square" alt="DSH 0.1.0-rc.6 only">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2563eb?style=flat-square" alt="Windows and macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
 </p>
 
 > [!IMPORTANT]
-> The current `main` branch is a `v0.2.0` release candidate for **`@deepseek-ai/dsh@0.1.0-rc.6` only**. This is an unofficial, version-locked patch package, not a native Cordis plugin. The installers refuse any other DSH version or unrecognized target file.
+> `v0.2.0` supports **`@deepseek-ai/dsh@0.1.0-rc.6` only**. This is an unofficial, version-locked patch package, not a native Cordis plugin. The installers refuse any other DSH version or unrecognized target file.
 
 ## See it work
 
@@ -68,11 +69,11 @@ After starting DSH, save the API key in the DeepSeek card under `Settings -> Mod
 ### 2. Get the project
 
 ```sh
-git clone https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.2.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-After a formal version is published, you can also download its source archive from [GitHub Releases](https://github.com/ArcanePivot/dsh-api-balance/releases) and run the following commands from the extracted directory.
+You can also download the source archive from the [`v0.2.0` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0) and run the following commands from the extracted directory. Pinning the version avoids installing unreleased changes from a future `main` branch.
 
 ### 3A. Windows
 
@@ -170,6 +171,7 @@ CI and the local verifier:
 | [Security](SECURITY.md) | API key and balance data flow, trusted endpoints, and vulnerability reporting |
 | [Changelog](CHANGELOG.md) | Release status and version changes |
 | [Third-party notices](THIRD_PARTY_NOTICES.md) | Origin and license of modified DeepSeek Harness artifacts |
+| [Contributing](CONTRIBUTING.md) | Bug reports, proposed changes, and privacy precautions |
 
 ## Project boundary
 

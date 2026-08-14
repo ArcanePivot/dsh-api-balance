@@ -7,6 +7,7 @@
 <p align="center">
   <strong>简体中文</strong> ·
   <a href="README.en.md">English</a> ·
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0">v0.2.0</a> ·
   <a href="#快速安装">快速安装</a> ·
   <a href="INSTALL.md">完整安装手册</a> ·
   <a href="SECURITY.md">安全说明</a> ·
@@ -15,14 +16,14 @@
 
 <p align="center">
   <a href="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml"><img src="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml/badge.svg" alt="Verify patches"></a>
-  <img src="https://img.shields.io/badge/status-release%20candidate-d97706?style=flat-square" alt="Release candidate">
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0"><img src="https://img.shields.io/badge/release-v0.2.0-16a34a?style=flat-square" alt="v0.2.0 release"></a>
   <img src="https://img.shields.io/badge/DSH-0.1.0--rc.6%20only-111827?style=flat-square" alt="DSH 0.1.0-rc.6 only">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2563eb?style=flat-square" alt="Windows and macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
 </p>
 
 > [!IMPORTANT]
-> 当前 `main` 是 `v0.2.0` 发布候选版，仅支持 **`@deepseek-ai/dsh@0.1.0-rc.6`**。这是非官方、版本锁定的补丁包，不是原生 Cordis 插件；安装器遇到其他 DSH 版本或已被修改的目标文件会拒绝执行。
+> `v0.2.0` 仅支持 **`@deepseek-ai/dsh@0.1.0-rc.6`**。这是非官方、版本锁定的补丁包，不是原生 Cordis 插件；安装器遇到其他 DSH 版本或已被修改的目标文件会拒绝执行。
 
 ## 实际效果
 
@@ -68,11 +69,11 @@ npm install -g @deepseek-ai/dsh@0.1.0-rc.6
 ### 2. 获取项目
 
 ```sh
-git clone https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.2.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-正式版本发布后，也可以从 [GitHub Releases](https://github.com/ArcanePivot/dsh-api-balance/releases) 下载源码包并在解压目录中执行下列命令。
+也可以从 [`v0.2.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0) 下载源码包并在解压目录中执行下列命令。固定版本可以避免以后 `main` 更新时意外安装尚未发布的代码。
 
 ### 3A. Windows
 
@@ -170,6 +171,7 @@ macOS：
 | [安全说明](SECURITY.md) | Key 与余额数据流、可信端点和漏洞报告方式 |
 | [更新日志](CHANGELOG.md) | 发布状态与版本变化 |
 | [第三方声明](THIRD_PARTY_NOTICES.md) | DeepSeek Harness 修改产物的来源与许可证 |
+| [参与贡献](CONTRIBUTING.md) | 报告问题、提交修改与隐私注意事项 |
 
 ## 项目边界
 

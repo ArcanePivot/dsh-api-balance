@@ -27,14 +27,14 @@
 
 ## 获取项目
 
-推荐使用 Git，这样以后可以明确看到版本和差异：
+推荐固定到正式发布标签，避免以后 `main` 更新时意外安装尚未发布的代码：
 
 ```sh
-git clone https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.2.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-正式版本发布后，也可以从 [GitHub Releases](https://github.com/ArcanePivot/dsh-api-balance/releases) 下载源码包。解压后，在包含 `install.ps1` 和 `install.sh` 的目录打开终端。
+也可以从 [`v0.2.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0) 下载源码包。解压后，在包含 `install.ps1` 和 `install.sh` 的目录打开终端。
 
 ## Windows
 

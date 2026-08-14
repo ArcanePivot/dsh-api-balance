@@ -1,0 +1,64 @@
+name: Bug report / 问题报告
+description: Report a reproducible API $$ problem without exposing private data.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please remove API keys, balances, private URLs, usernames, and complete local paths from all text and screenshots.
+        请从文字和截图中删除 API Key、余额、私有地址、用户名和完整本地路径。
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system / 操作系统
+      options:
+        - Windows 10
+        - Windows 11
+        - macOS
+        - Other / 其他
+    validations:
+      required: true
+  - type: input
+    id: dsh-version
+    attributes:
+      label: DSH version
+      description: API $$ v0.2.0 supports only @deepseek-ai/dsh 0.1.0-rc.6.
+      placeholder: 0.1.0-rc.6
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: API $$ version
+      placeholder: v0.2.0
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps / 复现步骤
+      description: Give the shortest sequence that reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result / 预期结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result / 实际结果
+      description: Paste only redacted errors or logs.
+    validations:
+      required: true
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Privacy check / 隐私检查
+      options:
+        - label: I removed API keys, balances, private URLs, usernames, and complete local paths. / 我已删除 API Key、余额、私有地址、用户名和完整本地路径。
+          required: true
