@@ -30,11 +30,11 @@
 推荐固定到正式发布标签，避免以后 `main` 更新时意外安装尚未发布的代码：
 
 ```sh
-git clone --branch v0.2.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.3.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-也可以从 [`v0.2.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0) 下载源码包。解压后，在包含 `install.ps1` 和 `install.sh` 的目录打开终端。
+也可以从 [`v0.3.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.3.0) 下载源码包。解压后，在包含 `install.ps1` 和 `install.sh` 的目录打开终端。
 
 ## Windows
 
@@ -146,9 +146,26 @@ launchd 托管的 DSH 应重启原服务：
 2. 侧边栏底部出现 `API 余额` 或 `API Balance`。
 3. 点击后显示 `API $$` 详情弹窗。
 4. 点击刷新后能看到账户状态、币种、充值余额、赠送余额和更新时间。
-5. 原有项目、会话和对话记录保持不变。
+5. 能看到今日、本周、本月、累计 Token、今日缓存命中率和每日柱状图；本周从周一开始。
+6. 切换上个月后能看到对应月份；切回本月时，未来日期应为零。
+7. 原有项目、会话和对话记录保持不变。
+
+首次打开用量面板可能需要扫描本机保留的会话日志。当前 DSH 进程内，未变化会话会复用缓存，后续刷新通常更快。
 
 安装器本身可以重复执行。目标文件已经是本项目版本且备份有效时，它会报告已安装，不会重复覆盖。
+
+## 从 API $$ v0.2.0 升级
+
+最稳妥的方式是继续使用原安装目录，因为其中的 `backup/` 或 `backup-macos/` 保存着经过校验的官方原件：
+
+```sh
+git fetch --tags
+git checkout v0.3.0
+```
+
+然后在 Windows 运行 `.\install.ps1 -WhatIf`、`.\install.ps1`，或在 macOS 运行 `./install.sh --dry-run`、`./install.sh`。安装器会确认当前文件确实属于旧版补丁，再整体替换并更新备份清单；对话记录不会参与这个过程。
+
+如果你下载到了一个全新的 `v0.3.0` 目录，先回到旧版目录运行旧卸载器恢复官方文件，再用新目录安装。不要手工复制其他机器或其他 DSH 版本的备份目录，也不要绕过“目标文件不是官方原件”的保护。
 
 ## 升级 DSH
 
@@ -192,6 +209,19 @@ npm root -g
 4. DSH Web UI 是否经过反向代理；同源 `/api/llm.balance` 必须能到达原 DSH 宿主。
 
 不要把 API Key、余额截图或私有地址贴进公开 Issue。
+
+余额接口失败不会阻止本地用量汇总；用量接口不需要 API Key，也不会访问 DeepSeek。
+
+### 用量为零或不完整
+
+本面板统计的是本机仍保留的 DSH 会话，不是 DeepSeek 官方全账户账单。依次确认：
+
+1. 调用来自 DSH 的官方 DeepSeek 提供方 `deepseek-official`，且提供方确实返回了 Token 用量。
+2. 对应会话日志仍在当前 `DSH_HOME` 中；已删除会话无法回溯。
+3. 其他电脑、其他客户端或直接调用 API 的用量不会出现在这里。
+4. 日期按浏览器时区归类；本周按周一零点起算。
+
+分叉会话复制的历史前缀会主动排除，避免同一批 Token 被重复累计。
 
 ### 重启后页面仍是旧界面
 

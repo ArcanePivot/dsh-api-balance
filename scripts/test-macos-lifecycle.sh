@@ -60,6 +60,30 @@ cmp "$host_target" "$project/files/dsh-host-apiproxy/lib/index.js"
 cmp "$sidebar_target" "$project/files/dsh-client-ui-sidebar/lib/client.js"
 run_project "$project/install.sh" >/dev/null
 
+old_root="$tmp/simulated-v0.2"
+old_host="$old_root/dsh-host-apiproxy/lib/index.js"
+old_sidebar="$old_root/dsh-client-ui-sidebar/lib/client.js"
+mkdir -p "$(dirname "$old_host")" "$(dirname "$old_sidebar")"
+cp "$host_target" "$old_host"
+cp "$sidebar_target" "$old_sidebar"
+printf '\n/* simulated v0.2 host */\n' >>"$old_host"
+printf '\n/* simulated v0.2 sidebar */\n' >>"$old_sidebar"
+cp "$old_host" "$host_target"
+cp "$old_sidebar" "$sidebar_target"
+node "$project/scripts/manifest.mjs" mark-installed \
+  "$project/backup-macos/manifest.json" \
+  "0.2.0" \
+  "dsh-host-apiproxy/lib/index.js" "$old_host" \
+  "dsh-client-ui-sidebar/lib/client.js" "$old_sidebar"
+run_project "$project/install.sh" --dry-run >/dev/null
+cmp "$host_target" "$old_host"
+cmp "$sidebar_target" "$old_sidebar"
+run_project "$project/install.sh" >/dev/null
+cmp "$host_target" "$project/files/dsh-host-apiproxy/lib/index.js"
+cmp "$sidebar_target" "$project/files/dsh-client-ui-sidebar/lib/client.js"
+node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(value.patchVersion!=="0.3.0") process.exit(1)' \
+  "$project/backup-macos/manifest.json"
+
 run_project "$project/uninstall.sh" --dry-run >/dev/null
 run_project "$project/uninstall.sh" >/dev/null
 cmp "$host_target" "$official_host/lib/index.js"
