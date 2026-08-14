@@ -46,7 +46,25 @@ while IFS= read -r -d '' file; do
   node --check "$file"
 done < <(find "$root/files" -type f -name '*.js' -print0)
 
-if git -C "$root" grep -n -E 'C:\\Users\\[0-9]+|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9]{16,}'; then
+private_pattern='C:\\Users\\[0-9]+|BEGIN [A-Z ]*PRIVATE KEY|sk-[A-Za-z0-9]{16,}'
+private_match=0
+
+if git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  if git -C "$root" grep -n -E "$private_pattern"; then
+    private_match=1
+  fi
+elif grep -R -n -E \
+  --exclude='*.png' \
+  --exclude='*.jpg' \
+  --exclude='*.jpeg' \
+  --exclude-dir='.git' \
+  --exclude-dir='backup' \
+  --exclude-dir='backup-macos' \
+  "$private_pattern" "$root"; then
+  private_match=1
+fi
+
+if [ "$private_match" -eq 1 ]; then
   echo "Potential private path or secret found in tracked files." >&2
   exit 1
 fi
