@@ -1,8 +1,10 @@
 # Changelog / 更新日志
 
-本项目遵循 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 的基本结构。版本发布前保持 `Unreleased` 标记，避免把仓库代码误写成已经发布的 GitHub Release。
+本项目遵循 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 的基本结构。
 
-## 0.2.0 - Unreleased
+## [Unreleased]
+
+## [0.2.0] - 2026-08-15
 
 ### Added
 
@@ -24,3 +26,6 @@
 - 仅支持 `@deepseek-ai/dsh@0.1.0-rc.6`
 - Windows 10 / 11
 - macOS，Bash 3.2 或更新版本
+
+[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0

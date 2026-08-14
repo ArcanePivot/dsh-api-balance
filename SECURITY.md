@@ -6,7 +6,7 @@ Only the version listed below receives compatibility and security fixes:
 
 | API $$ | DeepSeek Harness |
 | --- | --- |
-| `0.2.x` release candidate | `0.1.0-rc.6` only |
+| `0.2.x` | `0.1.0-rc.6` only |
 
 Do not bypass the installer version or SHA-256 checks. Restore the official DSH files before upgrading DSH, then wait for a matching API $$ release.
 

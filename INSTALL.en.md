@@ -27,14 +27,14 @@ This guide covers download, install, restart, verification, uninstall, upgrades,
 
 ## Get the project
 
-Git is recommended because it makes the version and local differences explicit:
+Pin the formal release tag so a future `main` update cannot install unreleased code unexpectedly:
 
 ```sh
-git clone https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.2.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-After a formal version is published, you can also download its source archive from [GitHub Releases](https://github.com/ArcanePivot/dsh-api-balance/releases). Open a terminal in the extracted directory containing `install.ps1` and `install.sh`.
+You can also download the source archive from the [`v0.2.0` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0). Open a terminal in the extracted directory containing `install.ps1` and `install.sh`.
 
 ## Windows
 

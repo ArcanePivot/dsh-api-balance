@@ -1,0 +1,31 @@
+name: Feature request / 功能建议
+description: Suggest a focused improvement to API $$.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / 要解决的问题
+      description: Describe the user problem rather than only the proposed implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior / 建议效果
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives / 其他方案
+      description: Optional. Describe any workaround or alternative you considered.
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope check / 范围确认
+      options:
+        - label: This request is related to the API balance experience or its safe installation and maintenance. / 这个建议与 API 余额体验或其安全安装维护有关。
+          required: true
