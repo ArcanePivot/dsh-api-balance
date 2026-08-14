@@ -24,7 +24,7 @@ body:
     id: dsh-version
     attributes:
       label: DSH version
-      description: API $$ v0.2.0 supports only @deepseek-ai/dsh 0.1.0-rc.6.
+      description: API $$ v0.3.0 supports only @deepseek-ai/dsh 0.1.0-rc.6.
       placeholder: 0.1.0-rc.6
     validations:
       required: true
@@ -32,7 +32,7 @@ body:
     id: plugin-version
     attributes:
       label: API $$ version
-      placeholder: v0.2.0
+      placeholder: v0.3.0
     validations:
       required: true
   - type: textarea

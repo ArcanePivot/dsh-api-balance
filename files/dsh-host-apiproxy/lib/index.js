@@ -1695,6 +1695,162 @@ function changedWorkspaceView(workspaceId, value) {
 		updatedAt: record.updatedAt
 	};
 }
+//#region dsh-api-balance/usage-analytics.js
+/** Provider route whose locally recorded usage belongs beside the DeepSeek balance. */
+const DEEPSEEK_USAGE_PROVIDER = "deepseek-official";
+/** Empty provider-reported token buckets plus a model-call count. */
+function emptyUsageBuckets() {
+	return {
+		uncachedInputTokens: 0,
+		outputTokens: 0,
+		cacheReadTokens: 0,
+		cacheWriteTokens: 0,
+		calls: 0
+	};
+}
+/** Normalize one trusted DSH TokenUsage value into the four disjoint buckets. */
+function usageBucketsFrom(usage) {
+	const count = (value) => Number.isSafeInteger(value) && value >= 0 ? value : 0;
+	return {
+		uncachedInputTokens: count(usage?.inputTokens),
+		outputTokens: count(usage?.outputTokens),
+		cacheReadTokens: count(usage?.cacheReadTokens),
+		cacheWriteTokens: count(usage?.cacheWriteTokens),
+		calls: 1
+	};
+}
+/** Add one usage bucket view into an accumulator in place. */
+function addUsageBuckets(target, source) {
+	target.uncachedInputTokens += source.uncachedInputTokens;
+	target.outputTokens += source.outputTokens;
+	target.cacheReadTokens += source.cacheReadTokens;
+	target.cacheWriteTokens += source.cacheWriteTokens;
+	target.calls += source.calls;
+	return target;
+}
+/** Browser-safe usage view, including total processed tokens and cache-hit ratio. */
+function usageBucketsView(buckets) {
+	const promptTokens = buckets.uncachedInputTokens + buckets.cacheReadTokens + buckets.cacheWriteTokens;
+	return {
+		...buckets,
+		totalTokens: promptTokens + buckets.outputTokens,
+		cacheHitRate: promptTokens === 0 ? null : buckets.cacheReadTokens / promptTokens
+	};
+}
+/**
+* Fold one session into final per-step DeepSeek usage samples. Usage chunks are
+* provisional and the finalized assistant message replaces the same turn/step,
+* matching dsh-token-meter rather than double-counting both records. A fork's
+* inherited prefix is read for route context but omitted from the returned
+* samples, so copied parent history is not charged twice.
+*/
+function deepSeekUsageSamples(meta, events, provider = DEEPSEEK_USAGE_PROVIDER) {
+	const inheritedLength = Number.isSafeInteger(meta?.seedLength) && meta.seedLength > 0 ? meta.seedLength : 0;
+	const samples = /* @__PURE__ */ new Map();
+	let currentProvider;
+	for (const event of events) {
+		if (event.type === "request/header") {
+			const configured = event.data?.header?.config?.provider;
+			if (typeof configured === "string" && configured.length > 0) currentProvider = configured;
+		} else if (event.type === "request/context") {
+			const configured = event.data?.provider;
+			if (typeof configured === "string" && configured.length > 0) currentProvider = configured;
+		}
+		let turn;
+		let step;
+		let usage;
+		let sampleProvider = currentProvider;
+		if (event.type === "assistant/chunk" && event.data?.chunk?.type === "usage") {
+			({ turn, step } = event.data);
+			usage = event.data.chunk.usage;
+		} else if (event.type === "assistant/message" && event.data?.usage !== void 0) {
+			({ turn, step, usage } = event.data);
+			const messageProvider = event.data.message?.source?.provider;
+			if (typeof messageProvider === "string" && messageProvider.length > 0) sampleProvider = messageProvider;
+		}
+		if (usage === void 0 || !Number.isSafeInteger(turn) || !Number.isSafeInteger(step)) continue;
+		samples.set(`${turn}:${step}`, {
+			seq: event.seq,
+			time: event.time,
+			provider: sampleProvider,
+			buckets: usageBucketsFrom(usage)
+		});
+	}
+	return [...samples.values()].filter((sample) => sample.seq >= inheritedLength && sample.provider === provider);
+}
+/** Stable YYYY-MM-DD key in the browser's requested IANA time zone. */
+function usageDateKey(time, formatter) {
+	const values = {};
+	for (const part of formatter.formatToParts(new Date(time))) if (part.type === "year" || part.type === "month" || part.type === "day") values[part.type] = part.value;
+	return `${values.year}-${values.month}-${values.day}`;
+}
+/** Number of calendar days in a validated YYYY-MM month. */
+function usageMonthDayCount(month) {
+	const [year, number] = month.split("-").map(Number);
+	const date = new Date(0);
+	date.setUTCHours(0, 0, 0, 0);
+	date.setUTCFullYear(year, number, 0);
+	return date.getUTCDate();
+}
+/** Monday-based calendar-week start for one YYYY-MM-DD key. */
+function usageWeekStart(dateKey) {
+	const date = new Date(`${dateKey}T00:00:00Z`);
+	const daysSinceMonday = (date.getUTCDay() + 6) % 7;
+	date.setUTCDate(date.getUTCDate() - daysSinceMonday);
+	return date.toISOString().slice(0, 10);
+}
+/** Aggregate retained local samples into headline totals and one month's bars. */
+function aggregateDeepSeekUsage(samples, selectedMonth, timeZone, generatedAt = Date.now()) {
+	const formatter = new Intl.DateTimeFormat("en-CA", {
+		timeZone,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit"
+	});
+	const todayKey = usageDateKey(generatedAt, formatter);
+	const currentMonth = todayKey.slice(0, 7);
+	const currentWeekStart = usageWeekStart(todayKey);
+	const today = emptyUsageBuckets();
+	const week = emptyUsageBuckets();
+	const month = emptyUsageBuckets();
+	const allTime = emptyUsageBuckets();
+	const selectedMonthTotal = emptyUsageBuckets();
+	const days = Array.from({ length: usageMonthDayCount(selectedMonth) }, (_, index) => ({
+		date: `${selectedMonth}-${String(index + 1).padStart(2, "0")}`,
+		...emptyUsageBuckets()
+	}));
+	for (const sample of samples) {
+		const key = usageDateKey(sample.time, formatter);
+		addUsageBuckets(allTime, sample.buckets);
+		if (key === todayKey) addUsageBuckets(today, sample.buckets);
+		if (key >= currentWeekStart && key <= todayKey) addUsageBuckets(week, sample.buckets);
+		if (key.startsWith(`${currentMonth}-`)) addUsageBuckets(month, sample.buckets);
+		if (key.startsWith(`${selectedMonth}-`)) {
+			addUsageBuckets(selectedMonthTotal, sample.buckets);
+			const day = Number(key.slice(-2));
+			if (Number.isSafeInteger(day) && days[day - 1] !== void 0) addUsageBuckets(days[day - 1], sample.buckets);
+		}
+	}
+	return {
+		provider: DEEPSEEK_USAGE_PROVIDER,
+		source: "local-retained-sessions",
+		timeZone,
+		generatedAt,
+		today: todayKey,
+		currentWeekStart,
+		currentMonth,
+		selectedMonth,
+		totals: {
+			today: usageBucketsView(today),
+			week: usageBucketsView(week),
+			month: usageBucketsView(month),
+			allTime: usageBucketsView(allTime),
+			selectedMonth: usageBucketsView(selectedMonthTotal)
+		},
+		days: days.map((day) => ({ date: day.date, ...usageBucketsView(day) }))
+	};
+}
+//#endregion
 /**
 * Implement ApiProxy over a composed host context.
 * @param ctx - a context with the Host spine and Workspace registry mounted.
@@ -1729,6 +1885,100 @@ function createApiProxy(ctx, defaults) {
 	const pendingApprovals = /* @__PURE__ */ new Map();
 	const muxQueues = /* @__PURE__ */ new Set();
 	const imageAdmissionChains = /* @__PURE__ */ new WeakMap();
+	/** Per-session usage folds keyed by live seq or durable persistence revision. */
+	const deepSeekUsageSessionCache = /* @__PURE__ */ new Map();
+	/** Stop a multi-session usage scan promptly when its HTTP request is gone. */
+	function throwIfUsageAborted(signal) {
+		if (isAborted(signal)) throw signal.reason ?? new Error("usage scan was aborted");
+	}
+	/**
+	* Read every distinct local session while reusing unchanged per-session folds.
+	* Active logs win over their persisted snapshots so an in-flight response is
+	* visible without forcing a durability flush. Cold reads run in small batches;
+	* one unreadable session is reported in coverage and does not hide the rest.
+	*/
+	async function collectDeepSeekUsage(signal) {
+		throwIfUsageAborted(signal);
+		const live = new Map(ctx.sessions.list().map((session) => [String(session.id), session]));
+		const persistence = ctx.get("sessionPersistence");
+		const snapshots = persistence === void 0 ? [] : await persistence.listSnapshots(signal);
+		throwIfUsageAborted(signal);
+		const seen = /* @__PURE__ */ new Set();
+		const samples = [];
+		let failedSessions = 0;
+		const useFold = (id, version, meta, events) => {
+			seen.add(id);
+			const cached = deepSeekUsageSessionCache.get(id);
+			if (cached !== void 0 && cached.version === version) {
+				samples.push(...cached.samples);
+				return;
+			}
+			const folded = deepSeekUsageSamples(meta, events);
+			deepSeekUsageSessionCache.set(id, { version, samples: folded });
+			samples.push(...folded);
+		};
+		const cold = [];
+		for (const snapshot of snapshots) {
+			const id = String(snapshot.header.id);
+			const session = live.get(id);
+			if (session !== void 0) {
+				live.delete(id);
+				try {
+					useFold(id, `live:${session.seq}`, session.header, session.events);
+				} catch (error) {
+					failedSessions++;
+					ctx.logger.warn(`llm.usage: live session "${id}" could not be folded: ${String(error)}`);
+				}
+			} else {
+				seen.add(id);
+				const version = `stored:${String(snapshot.revision)}`;
+				const cached = deepSeekUsageSessionCache.get(id);
+				if (cached !== void 0 && cached.version === version) samples.push(...cached.samples);
+				else cold.push({ id, version, header: snapshot.header });
+			}
+		}
+		for (const [id, session] of live) {
+			try {
+				useFold(id, `live:${session.seq}`, session.header, session.events);
+			} catch (error) {
+				failedSessions++;
+				ctx.logger.warn(`llm.usage: live session "${id}" could not be folded: ${String(error)}`);
+			}
+		}
+		if (persistence !== void 0) for (let offset = 0; offset < cold.length; offset += 4) {
+			throwIfUsageAborted(signal);
+			const batch = cold.slice(offset, offset + 4);
+			const settled = await Promise.allSettled(batch.map(async (item) => {
+				const stored = await persistence.readFrom(item.header.id, 0, signal);
+				return { item, stored };
+			}));
+			throwIfUsageAborted(signal);
+			for (let index = 0; index < settled.length; index++) {
+				const result = settled[index];
+				const item = batch[index];
+				if (result.status === "fulfilled") {
+					try {
+						useFold(item.id, item.version, result.value.stored.meta, result.value.stored.events);
+					} catch (error) {
+						failedSessions++;
+						ctx.logger.warn(`llm.usage: stored session "${item.id}" could not be folded: ${String(error)}`);
+					}
+				} else {
+					failedSessions++;
+					ctx.logger.warn(`llm.usage: stored session "${item.id}" could not be read: ${String(result.reason)}`);
+				}
+			}
+		}
+		for (const id of deepSeekUsageSessionCache.keys()) if (!seen.has(id)) deepSeekUsageSessionCache.delete(id);
+		return {
+			samples,
+			coverage: {
+				sessions: seen.size,
+				failedSessions,
+				durable: persistence !== void 0
+			}
+		};
+	}
 	/** Serialize image admission with model selection for one agent. */
 	function serializeImageAdmission(agent, operation) {
 		const result = (imageAdmissionChains.get(agent) ?? Promise.resolve()).then(operation);
@@ -3609,6 +3859,48 @@ function createApiProxy(ctx, defaults) {
 				}
 			},
 			/**
+			* Aggregate provider-reported DeepSeek usage from retained local DSH
+			* session logs. This is local observability, not the provider account's
+			* billing ledger: deleted logs and calls made outside this DSH instance
+			* are intentionally outside its coverage.
+			*/
+			async usage(request, signal) {
+				const requestedTimeZone = request.payload.timeZone ?? "UTC";
+				const timeZone = canonicalClientTimeZone(requestedTimeZone);
+				if (timeZone === void 0) return err(request, {
+					code: "invalid-time-zone",
+					message: "timeZone must be UTC or a valid IANA Area/Location name",
+					details: { value: requestedTimeZone }
+				});
+				const generatedAt = Date.now();
+				const currentDateFormatter = new Intl.DateTimeFormat("en-CA", {
+					timeZone,
+					year: "numeric",
+					month: "2-digit",
+					day: "2-digit"
+				});
+				const selectedMonth = request.payload.month ?? usageDateKey(generatedAt, currentDateFormatter).slice(0, 7);
+				try {
+					const collected = await collectDeepSeekUsage(signal);
+					return ok(request, {
+						...aggregateDeepSeekUsage(collected.samples, selectedMonth, timeZone, generatedAt),
+						coverage: collected.coverage
+					});
+				} catch (error) {
+					if (isAborted(signal)) return err(request, {
+						code: "cancelled",
+						message: "usage scan was aborted",
+						details: {}
+					});
+					ctx.logger.warn(`llm.usage: aggregate failed: ${String(error)}`);
+					return err(request, {
+						code: "internal",
+						message: "unable to summarize local DeepSeek usage",
+						details: {}
+					});
+				}
+			},
+			/**
 			* Read the DeepSeek account balance for the `deepseek-official` route:
 			* resolve the endpoint and key the same way the adapter does (the
 			* `llm-deepseek` settings section over `$DEEPSEEK_BASE_URL` /
@@ -4690,6 +4982,54 @@ const llmDiscoverModelsRequestSchema = z$1.object({
 });
 /** llm.discoverModels response value. */
 const llmDiscoverModelsValueSchema = z$1.object({ models: z$1.array(discoveredModelViewSchema) });
+/** Browser month and zone for the local DeepSeek usage chart. */
+const llmUsageRequestSchema = z$1.object({
+	month: z$1.string().regex(/^\d{4}-(?:0[1-9]|1[0-2])$/).optional(),
+	timeZone: z$1.string().min(1).max(128).optional()
+});
+/** One aggregate of disjoint provider-reported token buckets. */
+const usageBucketsViewSchema = z$1.object({
+	uncachedInputTokens: z$1.number().int().nonnegative(),
+	outputTokens: z$1.number().int().nonnegative(),
+	cacheReadTokens: z$1.number().int().nonnegative(),
+	cacheWriteTokens: z$1.number().int().nonnegative(),
+	calls: z$1.number().int().nonnegative(),
+	totalTokens: z$1.number().int().nonnegative(),
+	cacheHitRate: z$1.number().min(0).max(1).nullable()
+});
+/** llm.usage local-session analytics response. */
+const llmUsageValueSchema = z$1.object({
+	provider: z$1.literal("deepseek-official"),
+	source: z$1.literal("local-retained-sessions"),
+	timeZone: z$1.string().min(1),
+	generatedAt: z$1.number(),
+	today: z$1.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+	currentWeekStart: z$1.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+	currentMonth: z$1.string().regex(/^\d{4}-\d{2}$/),
+	selectedMonth: z$1.string().regex(/^\d{4}-\d{2}$/),
+	totals: z$1.object({
+		today: usageBucketsViewSchema,
+		week: usageBucketsViewSchema,
+		month: usageBucketsViewSchema,
+		allTime: usageBucketsViewSchema,
+		selectedMonth: usageBucketsViewSchema
+	}),
+	days: z$1.array(z$1.object({
+		date: z$1.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+		uncachedInputTokens: z$1.number().int().nonnegative(),
+		outputTokens: z$1.number().int().nonnegative(),
+		cacheReadTokens: z$1.number().int().nonnegative(),
+		cacheWriteTokens: z$1.number().int().nonnegative(),
+		calls: z$1.number().int().nonnegative(),
+		totalTokens: z$1.number().int().nonnegative(),
+		cacheHitRate: z$1.number().min(0).max(1).nullable()
+	})).max(31),
+	coverage: z$1.object({
+		sessions: z$1.number().int().nonnegative(),
+		failedSessions: z$1.number().int().nonnegative(),
+		durable: z$1.boolean()
+	})
+});
 /** One normalized DeepSeek balance-info row (mapped from the `/user/balance` wire fields). */
 const balanceInfoViewSchema = z$1.object({
 	currency: z$1.string(),
@@ -5009,6 +5349,10 @@ const UNARY_ROUTES = {
 	"llm.discoverModels": {
 		schema: llmDiscoverModelsRequestSchema,
 		invoke: (api, r, signal) => api.llm.discoverModels(r, signal)
+	},
+	"llm.usage": {
+		schema: llmUsageRequestSchema,
+		invoke: (api, r, signal) => api.llm.usage(r, signal)
 	},
 	"llm.balance": {
 		schema: llmBalanceRequestSchema,
@@ -5430,6 +5774,7 @@ const UNARY_VALUE_SCHEMAS = {
 	"llm.providers": llmProvidersValueSchema,
 	"llm.models": llmModelsValueSchema,
 	"llm.discoverModels": llmDiscoverModelsValueSchema,
+	"llm.usage": llmUsageValueSchema,
 	"llm.balance": llmBalanceValueSchema,
 };
 /** Default timeout for bounded unary calls (rpc-compare 2026-07-19: a hung host must not leave callers pending forever). */
@@ -5659,6 +6004,7 @@ var AbstractApiClient = class {
 		providers: (payload, signal) => this.callUnary("llm.providers", payload, signal),
 		models: (payload, signal) => this.callUnary("llm.models", payload, signal),
 		discoverModels: (payload, signal) => this.callUnary("llm.discoverModels", payload, signal),
+		usage: (payload, signal) => this.callUnary("llm.usage", payload, signal),
 		balance: (payload, signal) => this.callUnary("llm.balance", payload, signal),
 	};
 	events = {

@@ -1,5 +1,5 @@
 diff --git a/lib/client.js b/lib/client.js
-index 629e313..21fbb29 100644
+index 629e313..d9d5e49 100644
 --- a/lib/client.js
 +++ b/lib/client.js
 @@ -66,8 +66,9 @@ window.__ModuleLoader__.load({
@@ -35,7 +35,7 @@ index 629e313..21fbb29 100644
  							className: SidebarRoot_module_css_default.footerActions,
  							children: renderSlot("sidebar.footer.action", { wide })
  						}), (0, react_jsx_runtime.jsx)("div", {
-@@ -217,6 +221,455 @@ window.__ModuleLoader__.load({
+@@ -217,6 +221,789 @@ window.__ModuleLoader__.load({
  				]
  			});
  		}
@@ -50,6 +50,43 @@ index 629e313..21fbb29 100644
 +			if (typeof cryptoApi?.randomUUID === "function") return cryptoApi.randomUUID();
 +			return `balance-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 +		}
++		/** Call one same-origin host RPC and unwrap its typed value. */
++		async function callBalanceRpc(method, payload, signal) {
++			const response = await fetch(`/api/${method}`, {
++				method: "POST",
++				headers: { "content-type": "application/json" },
++				body: JSON.stringify({ type: "client-request", rpcId: createBalanceRpcId(), method, payload }),
++				signal
++			});
++			if (!response.ok) throw new Error(`HTTP ${response.status}`);
++			const envelope = await response.json();
++			if (!envelope?.result?.ok) throw new Error(envelope?.result?.error?.message ?? String(envelope?.result?.error));
++			return envelope.result.value;
++		}
++		/** Browser-local YYYY-MM key. */
++		function currentMonthKey() {
++			const now = new Date();
++			return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
++		}
++		/** Move a validated YYYY-MM key by whole calendar months. */
++		function shiftMonthKey(month, delta) {
++			const [year, number] = month.split("-").map(Number);
++			const shifted = new Date(year, number - 1 + delta, 1, 12);
++			return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, "0")}`;
++		}
++		/** Localized display label for a YYYY-MM key. */
++		function formatMonthName(month) {
++			const [year, number] = month.split("-").map(Number);
++			return new Intl.DateTimeFormat(void 0, { year: "numeric", month: "long" }).format(new Date(year, number - 1, 1, 12));
++		}
++		/** Compact UI number with the full value available in a title attribute. */
++		function formatTokenCount(value) {
++			const compact = (divisor, suffix) => `${Number((value / divisor).toFixed(value >= divisor * 10 ? 1 : 2))}${suffix}`;
++			if (value >= 1e9) return compact(1e9, "B");
++			if (value >= 1e6) return compact(1e6, "M");
++			if (value >= 1e3) return compact(1e3, "K");
++			return value.toLocaleString();
++		}
 +		/**
 +		* Sidebar footer balance entry: an API icon plus the current DeepSeek
 +		* account balance, fetched by POSTing the same-origin `llm.balance` RPC
@@ -62,8 +99,10 @@ index 629e313..21fbb29 100644
 +		*/
 +		function SidebarBalance({ wide, t }) {
 +			const [state, setState] = (0, react.useState)({ status: "loading" });
++			const [usageState, setUsageState] = (0, react.useState)({ status: "idle" });
 +			const [nonce, setNonce] = (0, react.useState)(0);
 +			const [open, setOpen] = (0, react.useState)(false);
++			const [selectedMonth, setSelectedMonth] = (0, react.useState)(currentMonthKey);
 +			const [anchor, setAnchor] = (0, react.useState)(null);
 +			const buttonRef = (0, react.useRef)(null);
 +			const popoverRef = (0, react.useRef)(null);
@@ -75,30 +114,14 @@ index 629e313..21fbb29 100644
 +					if (current) setState(next);
 +				};
 +				report({ status: "loading" });
-+				fetch("/api/llm.balance", {
-+					method: "POST",
-+					headers: { "content-type": "application/json" },
-+					body: JSON.stringify({ type: "client-request", rpcId: createBalanceRpcId(), method: "llm.balance", payload: {} }),
-+					signal: controller.signal
-+				}).then((response) => {
-+					if (!response.ok) {
-+						report({ status: "error", message: `HTTP ${response.status}` });
++				callBalanceRpc("llm.balance", {}, controller.signal).then((value) => {
++					if (!value?.ok) {
++						report({ status: "error", message: value?.message ?? t("balance.unavailable") });
 +						return;
 +					}
-+					return response.json();
-+				}).then((envelope) => {
-+					if (envelope === void 0) return;
-+					const result = envelope?.result;
-+					if (!result?.ok) {
-+						report({ status: "error", message: result?.error?.message ?? String(result?.error) });
-+						return;
-+					}
-+					if (!result.value?.ok) {
-+						report({ status: "error", message: result.value.message });
-+						return;
-+					}
-+					report({ status: "ready", value: result.value });
++					report({ status: "ready", value });
 +				}).catch((error) => {
++					if (controller.signal.aborted) return;
 +					report({ status: "error", message: error instanceof Error ? error.message : String(error) });
 +				});
 +				return () => {
@@ -106,6 +129,22 @@ index 629e313..21fbb29 100644
 +					controller.abort();
 +				};
 +			}, [nonce, wide]);
++			(0, react.useEffect)(() => {
++				if (!wide || !open) return;
++				let current = true;
++				const controller = new AbortController();
++				setUsageState({ status: "loading" });
++				const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
++				callBalanceRpc("llm.usage", { month: selectedMonth, timeZone }, controller.signal).then((value) => {
++					if (current) setUsageState({ status: "ready", value });
++				}).catch((error) => {
++					if (current && !controller.signal.aborted) setUsageState({ status: "error", message: error instanceof Error ? error.message : String(error) });
++				});
++				return () => {
++					current = false;
++					controller.abort();
++				};
++			}, [nonce, open, selectedMonth, wide]);
 +			(0, react.useEffect)(() => {
 +				if (!open) return;
 +				const onPointerDown = (event) => {
@@ -190,6 +229,7 @@ index 629e313..21fbb29 100644
 +							children: [
 +								(0, react_jsx_runtime.jsx)("button", {
 +									type: "button",
++									title: t("balance.refresh"),
 +									style: {
 +										padding: "6px 12px",
 +										border: "1px solid var(--dsw-alias-border-l2)",
@@ -198,10 +238,15 @@ index 629e313..21fbb29 100644
 +										color: "var(--dsw-alias-label-primary)",
 +										font: "inherit",
 +										fontSize: 13,
-+										cursor: "pointer"
++										cursor: "pointer",
++										display: "inline-flex",
++										alignItems: "center",
++										gap: 6
 +									},
 +									onClick: refresh,
-+									children: t("balance.refresh")
++									children: [(0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconRefreshOutline14, {
++										size: 14
++									}), (0, react_jsx_runtime.jsx)("span", { children: t("balance.refresh") })]
 +								}),
 +								(0, react_jsx_runtime.jsx)("button", {
 +									type: "button",
@@ -224,8 +269,11 @@ index 629e313..21fbb29 100644
 +						}),
 +						children: (0, react_jsx_runtime.jsx)(BalanceDetailBody, {
 +							state,
++							usageState,
 +							info,
 +							low,
++							selectedMonth,
++							onMonthChange: setSelectedMonth,
 +							formatAmount,
 +							onRetry: refresh,
 +							t
@@ -290,18 +338,20 @@ index 629e313..21fbb29 100644
 +		*/
 +		function BalancePopover({ open, anchor, popoverRef, onClose, title, hint, closeLabel, footer, children }) {
 +			if (!open || anchor === null) return null;
-+			const width = Math.min(340, Math.max(220, window.innerWidth - 16));
++			const width = Math.min(440, Math.max(280, window.innerWidth - 16));
 +			const left = Math.max(8, Math.min(anchor.right - width, window.innerWidth - width - 8));
 +			const preferAbove = anchor.top > 320;
 +			const avail = preferAbove ? anchor.top - 16 : window.innerHeight - anchor.bottom - 16;
-+			const maxHeight = Math.max(140, Math.min(Math.round(window.innerHeight * 0.7), avail));
++			const maxHeight = Math.max(140, Math.min(Math.round(window.innerHeight * 0.82), avail));
 +			const style = {
 +				position: "fixed",
 +				zIndex: 1000,
 +				left,
 +				width,
 +				maxHeight,
-+				overflow: "auto",
++				overflow: "hidden",
++				display: "flex",
++				flexDirection: "column",
 +				boxSizing: "border-box",
 +				background: "var(--dsw-alias-bg-layer-1)",
 +				border: "1px solid var(--dsw-alias-border-l2)",
@@ -320,6 +370,7 @@ index 629e313..21fbb29 100644
 +					(0, react_jsx_runtime.jsxs)("div", {
 +						style: {
 +							display: "flex",
++							flex: "none",
 +							alignItems: "center",
 +							justifyContent: "space-between",
 +							gap: 8,
@@ -355,8 +406,9 @@ index 629e313..21fbb29 100644
 +						]
 +					}),
 +					hint !== void 0 && (0, react_jsx_runtime.jsx)("p", {
-+						style: {
-+							margin: "0 0 8px",
++					style: {
++						flex: "none",
++						margin: "0 0 8px",
 +							fontSize: 12,
 +							lineHeight: "18px",
 +							color: "var(--dsw-alias-label-secondary)"
@@ -364,14 +416,19 @@ index 629e313..21fbb29 100644
 +						children: hint
 +					}),
 +					(0, react_jsx_runtime.jsx)("div", {
-+						style: {
-+							padding: "4px 0 8px"
++					style: {
++						minHeight: 0,
++						overflowX: "hidden",
++						overflowY: "auto",
++						overscrollBehavior: "contain",
++						padding: "4px 0 8px"
 +						},
 +						children
 +					}),
 +					footer !== void 0 && (0, react_jsx_runtime.jsx)("div", {
-+						style: {
-+							display: "flex",
++					style: {
++						display: "flex",
++						flex: "none",
 +							justifyContent: "flex-end",
 +							gap: 8,
 +							paddingTop: 10,
@@ -382,15 +439,8 @@ index 629e313..21fbb29 100644
 +				]
 +			});
 +		}
-+		/**
-+		* Body of the balance details dialog: a large total figure, the account
-+		* availability and check time, and one row per balance-info entry
-+		* (currency, topped-up, granted). Loading and failure states render their
-+		* own compact copy with a retry control.
-+		* @param props - the fetch state, the first balance-info row, formatters, and the bound dictionary.
-+		* @returns the dialog body element tree.
-+		*/
-+		function BalanceDetailBody({ state, info, low, formatAmount, onRetry, t }) {
++		/** Balance account summary followed by retained-session usage analytics. */
++		function BalanceDetailBody({ state, usageState, info, low, selectedMonth, onMonthChange, formatAmount, onRetry, t }) {
 +			const textStyle = {
 +				color: "var(--dsw-alias-label-primary)",
 +				fontSize: 13,
@@ -434,11 +484,12 @@ index 629e313..21fbb29 100644
 +				fontSize: 13,
 +				cursor: "pointer"
 +			};
-+			if (state.status === "loading") return (0, react_jsx_runtime.jsx)("p", {
++			let balanceBody;
++			if (state.status === "loading") balanceBody = (0, react_jsx_runtime.jsx)("p", {
 +				style: textStyle,
 +				children: t("balance.loading")
 +			});
-+			if (state.status === "error") return (0, react_jsx_runtime.jsxs)("div", {
++			else if (state.status === "error") balanceBody = (0, react_jsx_runtime.jsxs)("div", {
 +				children: [(0, react_jsx_runtime.jsx)("p", {
 +					role: "alert",
 +					style: {
@@ -453,45 +504,328 @@ index 629e313..21fbb29 100644
 +					children: t("balance.retryAction")
 +				})]
 +			});
-+			if (info === void 0) return (0, react_jsx_runtime.jsx)("p", {
++			else if (info === void 0) balanceBody = (0, react_jsx_runtime.jsx)("p", {
 +				style: textStyle,
 +				children: t("balance.unavailable")
 +			});
-+			const checkedAt = new Date(state.value.checkedAt);
++			else {
++				const checkedAt = new Date(state.value.checkedAt);
++				balanceBody = (0, react_jsx_runtime.jsxs)("div", {
++					children: [
++						(0, react_jsx_runtime.jsxs)("div", {
++							style: {
++								display: "flex",
++								alignItems: "baseline",
++								gap: 8,
++								marginBottom: 8
++							},
++							children: [(0, react_jsx_runtime.jsx)("strong", {
++								style: {
++									fontSize: 26,
++									fontWeight: 650,
++									lineHeight: "34px",
++									color: low ? "var(--dsw-alias-state-warn-primary)" : "var(--dsw-alias-label-primary)"
++								},
++								children: formatAmount(info.currency, info.totalBalance)
++							}), (0, react_jsx_runtime.jsxs)("span", {
++								style: {
++									display: "inline-flex",
++									alignItems: "center",
++									gap: 5,
++									fontSize: 12,
++									color: state.value.isAvailable ? "var(--dsw-alias-state-success-primary)" : "var(--dsw-alias-state-error-primary)"
++								},
++								children: [(0, react_jsx_runtime.jsx)("span", {
++									style: {
++										width: 7,
++										height: 7,
++										borderRadius: "50%",
++										background: "currentColor"
++									}
++								}), state.value.isAvailable ? t("balance.availableShort") : t("balance.notAvailableShort")]
++							})]
++						}),
++						low && (0, react_jsx_runtime.jsx)("p", {
++							role: "status",
++							style: {
++								margin: "0 0 8px",
++								fontSize: 12,
++								lineHeight: "18px",
++								color: "var(--dsw-alias-state-warn-primary)"
++							},
++							children: t("balance.low")
++						}),
++						row(t("balance.toppedUp"), formatAmount(info.currency, info.toppedUpBalance)),
++						row(t("balance.granted"), formatAmount(info.currency, info.grantedBalance)),
++						row(t("balance.updatedAt"), checkedAt.toLocaleString())
++					]
++				});
++			}
 +			return (0, react_jsx_runtime.jsxs)("div", {
 +				children: [
-+					(0, react_jsx_runtime.jsx)("div", {
++					balanceBody,
++					(0, react_jsx_runtime.jsx)(UsageAnalyticsBody, {
++						state: usageState,
++						selectedMonth,
++						onMonthChange,
++						onRetry,
++						t
++					})
++				]
++			});
++		}
++		/** Headline token totals, cache ratio, and a responsive daily bar chart. */
++		function UsageAnalyticsBody({ state, selectedMonth, onMonthChange, onRetry, t }) {
++			const sectionStyle = {
++				marginTop: 14,
++				paddingTop: 14,
++				borderTop: "1px solid var(--dsw-alias-border-l1)"
++			};
++			const heading = (0, react_jsx_runtime.jsx)("h3", {
++				style: {
++					margin: "0 0 10px",
++					fontSize: 14,
++					fontWeight: 650,
++					lineHeight: "20px",
++					color: "var(--dsw-alias-label-primary)"
++				},
++				children: t("usage.title")
++			});
++			if (state.status === "idle" || state.status === "loading") return (0, react_jsx_runtime.jsxs)("section", {
++				style: sectionStyle,
++				children: [heading, (0, react_jsx_runtime.jsx)("p", {
++					style: {
++						margin: 0,
++						fontSize: 12,
++						lineHeight: "18px",
++						color: "var(--dsw-alias-label-secondary)"
++					},
++					children: t("usage.loading")
++				})]
++			});
++			if (state.status === "error") return (0, react_jsx_runtime.jsxs)("section", {
++				style: sectionStyle,
++				children: [heading, (0, react_jsx_runtime.jsx)("p", {
++					role: "alert",
++					style: {
++						margin: 0,
++						fontSize: 12,
++						lineHeight: "18px",
++						color: "var(--dsw-alias-state-error-primary)"
++					},
++					children: state.message
++				}), (0, react_jsx_runtime.jsx)("button", {
++					type: "button",
++					style: {
++						marginTop: 8,
++						padding: "6px 12px",
++						border: "1px solid var(--dsw-alias-border-l2)",
++						borderRadius: 8,
++						background: "var(--dsw-alias-button-elevated-fill)",
++						color: "var(--dsw-alias-label-primary)",
++						font: "inherit",
++						fontSize: 13,
++						cursor: "pointer"
++					},
++					onClick: onRetry,
++					children: t("balance.retryAction")
++				})]
++			});
++			const value = state.value;
++			const metric = (label, bucket) => (0, react_jsx_runtime.jsxs)("div", {
++				style: {
++					minWidth: 0,
++					padding: "8px 9px"
++				},
++				children: [(0, react_jsx_runtime.jsx)("strong", {
++					style: {
++						display: "block",
++						fontSize: 17,
++						fontWeight: 650,
++						lineHeight: "23px",
++						color: "var(--dsw-alias-label-primary)",
++						overflow: "hidden",
++						textOverflow: "ellipsis",
++						whiteSpace: "nowrap"
++					},
++					title: bucket.totalTokens.toLocaleString(),
++					children: formatTokenCount(bucket.totalTokens)
++				}), (0, react_jsx_runtime.jsx)("span", {
++					style: {
++						display: "block",
++						fontSize: 11,
++						lineHeight: "16px",
++						color: "var(--dsw-alias-label-secondary)"
++					},
++					children: label
++				})]
++			});
++			const days = value.days;
++			const maxTokens = Math.max(0, ...days.map((day) => day.totalTokens));
++			const today = value.today;
++			const current = currentMonthKey();
++			const iconButtonStyle = {
++				width: 28,
++				height: 28,
++				border: "none",
++				borderRadius: "50%",
++				background: "none",
++				color: "var(--dsw-alias-label-secondary)",
++				cursor: "pointer",
++				display: "inline-flex",
++				alignItems: "center",
++				justifyContent: "center",
++				padding: 0
++			};
++			return (0, react_jsx_runtime.jsxs)("section", {
++				style: sectionStyle,
++				children: [
++					heading,
++					(0, react_jsx_runtime.jsxs)("div", {
 +						style: {
-+							fontSize: 24,
-+							fontWeight: 600,
-+							lineHeight: "32px",
-+							color: low ? "var(--dsw-alias-state-warn-primary)" : "var(--dsw-alias-label-primary)",
++							display: "grid",
++							gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
++							background: "var(--dsw-alias-button-elevated-fill)",
++							border: "1px solid var(--dsw-alias-border-l1)",
++							borderRadius: 8,
++							overflow: "hidden"
++						},
++						children: [metric(t("usage.today"), value.totals.today), metric(t("usage.week"), value.totals.week), metric(t("usage.month"), value.totals.month), metric(t("usage.allTime"), value.totals.allTime)]
++					}),
++					(0, react_jsx_runtime.jsxs)("div", {
++						style: {
++							display: "flex",
++							justifyContent: "space-between",
++							gap: 12,
++							margin: "8px 0 12px",
++							fontSize: 12,
++							lineHeight: "18px"
++						},
++						children: [(0, react_jsx_runtime.jsx)("span", {
++							style: { color: "var(--dsw-alias-label-secondary)" },
++							children: t("usage.cacheHit")
++						}), (0, react_jsx_runtime.jsx)("strong", {
++							style: { color: "var(--dsw-alias-label-primary)", fontWeight: 600 },
++							children: value.totals.today.cacheHitRate === null ? "—" : new Intl.NumberFormat(void 0, { style: "percent", maximumFractionDigits: 1 }).format(value.totals.today.cacheHitRate)
++						})]
++					}),
++					(0, react_jsx_runtime.jsxs)("div", {
++						style: {
++							display: "flex",
++							alignItems: "center",
++							justifyContent: "space-between",
++							gap: 8,
 +							marginBottom: 8
 +						},
-+						children: formatAmount(info.currency, info.totalBalance)
++						children: [(0, react_jsx_runtime.jsxs)("div", {
++							children: [(0, react_jsx_runtime.jsx)("strong", {
++								style: { display: "block", fontSize: 13, lineHeight: "18px", color: "var(--dsw-alias-label-primary)" },
++								children: t("usage.daily")
++							}), (0, react_jsx_runtime.jsx)("span", {
++								style: { display: "block", fontSize: 11, lineHeight: "16px", color: "var(--dsw-alias-label-secondary)" },
++								children: `${formatMonthName(selectedMonth)} · ${formatTokenCount(value.totals.selectedMonth.totalTokens)}`
++							})]
++						}), (0, react_jsx_runtime.jsxs)("div", {
++							style: { display: "flex", alignItems: "center", gap: 2 },
++							children: [(0, react_jsx_runtime.jsx)("button", {
++								type: "button",
++								style: iconButtonStyle,
++								title: t("usage.previousMonth"),
++								"aria-label": t("usage.previousMonth"),
++								onClick: () => onMonthChange(shiftMonthKey(selectedMonth, -1)),
++								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronLeftOutline14, { size: 14 })
++							}), (0, react_jsx_runtime.jsx)("button", {
++								type: "button",
++								style: {
++									...iconButtonStyle,
++									opacity: selectedMonth >= current ? 0.35 : 1,
++									cursor: selectedMonth >= current ? "default" : "pointer"
++								},
++								disabled: selectedMonth >= current,
++								title: t("usage.nextMonth"),
++								"aria-label": t("usage.nextMonth"),
++								onClick: () => onMonthChange(shiftMonthKey(selectedMonth, 1)),
++								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconChevronRightOutline14, { size: 14 })
++							})]
++						})]
 +					}),
-+					low && (0, react_jsx_runtime.jsx)("p", {
-+						role: "status",
++					(0, react_jsx_runtime.jsx)("div", {
++						role: "img",
++						"aria-label": `${formatMonthName(selectedMonth)} ${t("usage.daily")}`,
 +						style: {
-+							margin: "0 0 8px",
-+							fontSize: 12,
-+							lineHeight: "18px",
-+							color: "var(--dsw-alias-state-warn-primary)"
++							position: "relative",
++							display: "flex",
++							alignItems: "flex-end",
++							gap: 3,
++							height: 112,
++							paddingTop: 4,
++							borderBottom: "1px solid var(--dsw-alias-border-l1)"
 +						},
-+						children: t("balance.low")
++						children: [maxTokens === 0 && (0, react_jsx_runtime.jsx)("span", {
++							style: {
++								position: "absolute",
++								inset: "34px 0 auto",
++								textAlign: "center",
++								fontSize: 12,
++								color: "var(--dsw-alias-label-secondary)"
++							},
++							children: t("usage.empty")
++						}), ...days.map((day, index) => {
++							const number = index + 1;
++							const isToday = day.date === today;
++							const height = day.totalTokens === 0 || maxTokens === 0 ? 2 : Math.max(4, Math.round(day.totalTokens / maxTokens * 84));
++							const showLabel = number === 1 || number === days.length || number % 5 === 0 && days.length - number > 1 || isToday;
++							return (0, react_jsx_runtime.jsxs)("div", {
++								style: {
++									display: "flex",
++									flex: "1 1 0",
++									minWidth: 0,
++									height: "100%",
++									flexDirection: "column",
++									justifyContent: "flex-end",
++									alignItems: "center"
++								},
++								title: `${day.date}: ${day.totalTokens.toLocaleString()} ${t("usage.tokens")} · ${day.calls} ${t("usage.calls")}`,
++								children: [(0, react_jsx_runtime.jsx)("span", {
++									style: {
++										width: "100%",
++										maxWidth: 10,
++										height,
++										borderRadius: "3px 3px 1px 1px",
++										background: "var(--dsw-static-blue-450)",
++										opacity: isToday ? 1 : day.totalTokens === 0 ? 0.18 : 0.58
++									}
++								}), (0, react_jsx_runtime.jsx)("span", {
++									style: {
++										height: 18,
++										paddingTop: 4,
++										fontSize: 9,
++										lineHeight: "14px",
++										color: isToday ? "var(--dsw-static-blue-450)" : "var(--dsw-alias-label-secondary)",
++										fontWeight: isToday ? 650 : 400
++									},
++									children: showLabel ? String(number) : ""
++								})]
++							}, day.date);
++						})]
 +					}),
-+					row(t("balance.account"), state.value.isAvailable ? t("balance.available") : t("balance.notAvailable")),
-+					row(t("balance.currency"), info.currency),
-+					row(t("balance.toppedUp"), formatAmount(info.currency, info.toppedUpBalance)),
-+					row(t("balance.granted"), formatAmount(info.currency, info.grantedBalance)),
-+					row(t("balance.updatedAt"), checkedAt.toLocaleString())
++					(0, react_jsx_runtime.jsx)("p", {
++						style: {
++							margin: "8px 0 0",
++							fontSize: 11,
++							lineHeight: "16px",
++							color: value.coverage.failedSessions > 0 ? "var(--dsw-alias-state-warn-primary)" : "var(--dsw-alias-label-secondary)"
++						},
++						title: t("usage.scopeHint"),
++						children: `${t("usage.coverage")} · ${value.coverage.sessions}${value.coverage.failedSessions > 0 ? ` · ${value.coverage.failedSessions} ${t("usage.skipped")}` : ""}`
++					})
 +				]
 +			});
 +		}
  		//#endregion
  		//#region lib/types/client/locales.js
  		/** `sidebar` namespace dictionaries: shell controls (brand row, New Session, fold toggle). */
-@@ -225,14 +678,52 @@ window.__ModuleLoader__.load({
+@@ -225,14 +1012,88 @@ window.__ModuleLoader__.load({
  			"session.new": "新会话",
  			"session.new.label": "新建会话",
  			"toggle.open": "打开侧边栏",
@@ -510,12 +844,30 @@ index 629e313..21fbb29 100644
 +			"balance.retryAction": "重试",
 +			"balance.available": "账户可用",
 +			"balance.notAvailable": "账户不可用",
++			"balance.availableShort": "可用",
++			"balance.notAvailableShort": "不可用",
 +			"balance.account": "账户状态",
 +			"balance.updatedAt": "更新时间",
 +			"balance.low": "余额偏低，建议及时充值",
 +			"balance.currency": "币种",
 +			"balance.detail": "余额详情",
-+			"balance.detailHint": "点击刷新获取最新余额"
++			"balance.detailHint": "DeepSeek 账户余额与本机 DSH 用量",
++			"usage.title": "Token 用量",
++			"usage.loading": "正在汇总本机用量…",
++			"usage.today": "今日",
++			"usage.week": "本周",
++			"usage.month": "本月",
++			"usage.allTime": "累计",
++			"usage.cacheHit": "今日缓存命中率",
++			"usage.daily": "每日用量",
++			"usage.previousMonth": "上个月",
++			"usage.nextMonth": "下个月",
++			"usage.empty": "本月暂无记录",
++			"usage.tokens": "Token",
++			"usage.calls": "次调用",
++			"usage.coverage": "本机保留会话",
++			"usage.skipped": "个未纳入",
++			"usage.scopeHint": "仅统计本机保留的 DSH 会话；不包含已删除日志或其他客户端的 API 调用。"
  		};
  		/** English dictionary, checked complete against the zh key set. */
  		const en = {
@@ -537,16 +889,34 @@ index 629e313..21fbb29 100644
 +			"balance.retryAction": "Retry",
 +			"balance.available": "Account available",
 +			"balance.notAvailable": "Account unavailable",
++			"balance.availableShort": "Available",
++			"balance.notAvailableShort": "Unavailable",
 +			"balance.account": "Account status",
 +			"balance.updatedAt": "Updated",
 +			"balance.low": "Balance is low, consider topping up",
 +			"balance.currency": "Currency",
 +			"balance.detail": "Balance details",
-+			"balance.detailHint": "Click to refresh for the latest balance"
++			"balance.detailHint": "DeepSeek account balance and local DSH usage",
++			"usage.title": "Token usage",
++			"usage.loading": "Summarizing local usage…",
++			"usage.today": "Today",
++			"usage.week": "This week",
++			"usage.month": "This month",
++			"usage.allTime": "All time",
++			"usage.cacheHit": "Today's cache hit rate",
++			"usage.daily": "Daily usage",
++			"usage.previousMonth": "Previous month",
++			"usage.nextMonth": "Next month",
++			"usage.empty": "No usage this month",
++			"usage.tokens": "tokens",
++			"usage.calls": "calls",
++			"usage.coverage": "Retained local sessions",
++			"usage.skipped": "skipped",
++			"usage.scopeHint": "Counts retained local DSH sessions only; deleted logs and API calls from other clients are not included."
  		};
  		//#endregion
  		//#region lib/types/client/index.js
-@@ -289,4 +780,4 @@ window.__ModuleLoader__.load({
+@@ -289,4 +1150,4 @@ window.__ModuleLoader__.load({
  	}
  });
  

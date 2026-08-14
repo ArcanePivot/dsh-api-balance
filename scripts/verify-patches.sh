@@ -40,6 +40,7 @@ for script in \
 done
 
 node --check "$root/scripts/manifest.mjs"
+node "$root/scripts/test-usage-analytics.mjs"
 "$root/scripts/test-macos-lifecycle.sh" "$tmp/host" "$tmp/sidebar"
 
 while IFS= read -r -d '' file; do

@@ -4,6 +4,33 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-08-15
+
+### Added
+
+- 从本机保留的 DSH 会话回溯 DeepSeek Token 用量
+- 今日、本周、本月、累计四档汇总；本周从周一开始
+- 今日缓存命中率与可切换月份的每日柱状图
+- 中文、英文和 390 px 窄屏响应式布局
+- 经过校验的 `v0.2.0 -> v0.3.0` 原目录升级路径
+
+### Correctness
+
+- 最终 assistant 用量替换同轮临时 usage chunk，避免重复累计
+- 仅统计 `deepseek-official`，并排除分叉会话复制的历史前缀
+- 日期按浏览器 IANA 时区归类，覆盖周界、月界与闰年
+- 单个损坏会话只计入跳过数量，不阻断整个面板
+
+### Security and privacy
+
+- `/api/llm.usage` 不需要 API Key，也不访问外部服务
+- 仅返回聚合数字、日期和覆盖范围，不返回提示词或回复正文
+- 不创建新的用量数据库；未变化会话的聚合只缓存在当前 DSH 进程
+
+### Compatibility
+
+- 仅支持 `@deepseek-ai/dsh@0.1.0-rc.6`
+
 ## [0.2.0] - 2026-08-15
 
 ### Added
@@ -27,5 +54,6 @@
 - Windows 10 / 11
 - macOS，Bash 3.2 或更新版本
 
-[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0

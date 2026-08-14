@@ -30,11 +30,11 @@ This guide covers download, install, restart, verification, uninstall, upgrades,
 Pin the formal release tag so a future `main` update cannot install unreleased code unexpectedly:
 
 ```sh
-git clone --branch v0.2.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.3.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-You can also download the source archive from the [`v0.2.0` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0). Open a terminal in the extracted directory containing `install.ps1` and `install.sh`.
+You can also download the source archive from the [`v0.3.0` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.3.0). Open a terminal in the extracted directory containing `install.ps1` and `install.sh`.
 
 ## Windows
 
@@ -146,9 +146,26 @@ Use the `--launchd-label` form for the last command when launchd owns DSH.
 2. Confirm that `API 余额` or `API Balance` appears at the bottom of the sidebar.
 3. Click it and confirm that the `API $$` details popover opens.
 4. Refresh the balance and verify account status, currency, topped-up balance, granted balance, and timestamp.
-5. Confirm that existing projects, sessions, and conversation history are unchanged.
+5. Confirm that Today, This week, This month, All time, today's cache hit rate, and the daily chart appear. Weeks start on Monday.
+6. Switch to the previous month and back; future dates in the current month should remain zero.
+7. Confirm that existing projects, sessions, and conversation history are unchanged.
+
+The first usage-panel open may scan retained local session logs. Unchanged sessions reuse an in-process cache, so later refreshes are usually faster.
 
 The installer is idempotent. If the target files already match this project and the backup is valid, it reports an existing installation without overwriting again.
+
+## Upgrade from API $$ v0.2.0
+
+The safest path is to reuse the original project directory because its `backup/` or `backup-macos/` contains the verified pristine files:
+
+```sh
+git fetch --tags
+git checkout v0.3.0
+```
+
+Then run `.\install.ps1 -WhatIf` and `.\install.ps1` on Windows, or `./install.sh --dry-run` and `./install.sh` on macOS. The installer verifies that the current targets match the previous patch, replaces both files transactionally, and updates the manifest. Conversation history is not involved.
+
+If you downloaded `v0.3.0` into a new directory, first use the old directory's uninstaller to restore the official files, then install from the new directory. Never copy a backup directory from another machine or DSH version, and do not bypass the official-file guard.
 
 ## Upgrade DSH
 
@@ -192,6 +209,19 @@ Check in this order:
 4. If a reverse proxy fronts DSH, same-origin `/api/llm.balance` still reaches the original DSH host.
 
 Never paste an API key, account-balance screenshot, or private URL into a public issue.
+
+A balance-route failure does not block local usage aggregation. The usage route needs no API key and makes no request to DeepSeek.
+
+### Usage is zero or incomplete
+
+This panel reports retained local DSH sessions, not the official DeepSeek account-wide bill. Check that:
+
+1. Calls used DSH's official `deepseek-official` provider and the provider returned Token usage.
+2. Their session logs still exist under the current `DSH_HOME`; deleted sessions cannot be backfilled.
+3. Calls made on other computers, by other clients, or directly against the API are intentionally excluded.
+4. Dates use the browser timezone, and the current week begins Monday at midnight.
+
+Copied history at the start of forked sessions is excluded to prevent double-counting the same Tokens.
 
 ### Old UI remains after restart
 
