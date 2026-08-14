@@ -16,6 +16,7 @@
 
 ### Correctness
 
+- Windows PowerShell 5.1 的 `-WhatIf` 预检可正常读取 SHA-256，且仍保持零写入
 - 最终 assistant 用量替换同轮临时 usage chunk，避免重复累计
 - 仅统计 `deepseek-official`，并排除分叉会话复制的历史前缀
 - 日期按浏览器 IANA 时区归类，覆盖周界、月界与闰年

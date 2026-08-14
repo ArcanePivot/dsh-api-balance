@@ -22,7 +22,21 @@ function ConvertTo-NativeRelativePath {
 
 function Get-DshApiBalanceSha256 {
     param([Parameter(Mandatory = $true)][string]$Path)
-    return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    # Windows PowerShell 5.1 propagates the installer's -WhatIf preference into
+    # Get-FileHash, which then returns no object. Use the read-only .NET API so
+    # validation still runs while every installer write remains WhatIf-guarded.
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $algorithm = [Security.Cryptography.SHA256]::Create()
+        try {
+            $bytes = $algorithm.ComputeHash($stream)
+            return ([BitConverter]::ToString($bytes)).Replace("-", "").ToLowerInvariant()
+        } finally {
+            $algorithm.Dispose()
+        }
+    } finally {
+        $stream.Dispose()
+    }
 }
 
 function Get-DshApiBalanceInstall {
