@@ -1,0 +1,11 @@
+# Patches must stay LF on every platform so `git apply` matches the original
+# npm bundles (which are LF).
+*.patch text eol=lf
+files/**/*.js text eol=lf
+*.mjs text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+# Everything else: normalize to LF in the repo, platform-local on checkout.
+* text=auto

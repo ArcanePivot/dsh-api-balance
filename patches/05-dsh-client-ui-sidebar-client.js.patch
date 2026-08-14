@@ -1,0 +1,555 @@
+diff --git a/lib/client.js b/lib/client.js
+index 629e313..21fbb29 100644
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -66,8 +66,9 @@ window.__ModuleLoader__.load({
+ 		* same top-down order) on one fade that ends with the slide. The bottom-pinned
+ 		* settings control only fades. The workspace/session browsing region between
+ 		* the New Session button and the foot is the `sidebar.workspaces` registrant's,
+-		* and the foot holds `sidebar.settings` plus `sidebar.footer.action`; the shell
+-		* hands them the wide flag (plus an expand request callback for the browser).
++		* and the foot holds the balance badge, `sidebar.settings` plus
++		* `sidebar.footer.action`; the shell hands them the wide flag (plus an expand
++		* request callback for the browser).
+ 		*
+ 		* The column also owns whether the scroll regions nested in it draw a
+ 		* scrollbar at all: the shell tracks the pointer and rebinds ui-theme's
+@@ -80,7 +81,7 @@ window.__ModuleLoader__.load({
+ 		* How long the column's scrollbars stay drawn after the pointer leaves it.
+ 		* The bar is a pointer affordance here, and hiding it on the leave event
+ 		* itself makes it blink out while the pointer is only crossing the column's
+-		* edge — on the way to the conversation, or around a portalled menu.
++		* edge —on the way to the conversation, or around a portalled menu.
+ 		*/
+ 		const SCROLLBAR_LINGER_MS = 2e3;
+ 		/**
+@@ -206,7 +207,10 @@ window.__ModuleLoader__.load({
+ 					}),
+ 					(0, react_jsx_runtime.jsxs)("div", {
+ 						className: SidebarRoot_module_css_default.footArea,
+-						children: [(0, react_jsx_runtime.jsx)("div", {
++						children: [(0, react_jsx_runtime.jsx)(SidebarBalance, {
++							wide,
++							t
++						}), (0, react_jsx_runtime.jsx)("div", {
+ 							className: SidebarRoot_module_css_default.footerActions,
+ 							children: renderSlot("sidebar.footer.action", { wide })
+ 						}), (0, react_jsx_runtime.jsx)("div", {
+@@ -217,6 +221,455 @@ window.__ModuleLoader__.load({
+ 				]
+ 			});
+ 		}
++		/**
++		* Balance total (in the account currency) below which the entry turns
++		* into the warning state and the details dialog shows a top-up hint.
++		*/
++		const LOW_BALANCE_THRESHOLD = 20;
++		/** Build a correlation id even when an HTTP page lacks crypto.randomUUID. */
++		function createBalanceRpcId() {
++			const cryptoApi = globalThis.crypto;
++			if (typeof cryptoApi?.randomUUID === "function") return cryptoApi.randomUUID();
++			return `balance-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
++		}
++		/**
++		* Sidebar footer balance entry: an API icon plus the current DeepSeek
++		* account balance, fetched by POSTing the same-origin `llm.balance` RPC
++		* endpoint directly (the API key stays on the host). Clicking opens a
++		* details dialog with the full granted/topped-up breakdown, account
++		* availability, and the check time, plus a refresh control. Hidden in
++		* the collapsed rail, where the footer centers icon-only controls.
++		* @param props - the wide flag and the bound dictionary.
++		* @returns the balance row, or null when collapsed.
++		*/
++		function SidebarBalance({ wide, t }) {
++			const [state, setState] = (0, react.useState)({ status: "loading" });
++			const [nonce, setNonce] = (0, react.useState)(0);
++			const [open, setOpen] = (0, react.useState)(false);
++			const [anchor, setAnchor] = (0, react.useState)(null);
++			const buttonRef = (0, react.useRef)(null);
++			const popoverRef = (0, react.useRef)(null);
++			(0, react.useEffect)(() => {
++				if (!wide) return;
++				let current = true;
++				const controller = new AbortController();
++				const report = (next) => {
++					if (current) setState(next);
++				};
++				report({ status: "loading" });
++				fetch("/api/llm.balance", {
++					method: "POST",
++					headers: { "content-type": "application/json" },
++					body: JSON.stringify({ type: "client-request", rpcId: createBalanceRpcId(), method: "llm.balance", payload: {} }),
++					signal: controller.signal
++				}).then((response) => {
++					if (!response.ok) {
++						report({ status: "error", message: `HTTP ${response.status}` });
++						return;
++					}
++					return response.json();
++				}).then((envelope) => {
++					if (envelope === void 0) return;
++					const result = envelope?.result;
++					if (!result?.ok) {
++						report({ status: "error", message: result?.error?.message ?? String(result?.error) });
++						return;
++					}
++					if (!result.value?.ok) {
++						report({ status: "error", message: result.value.message });
++						return;
++					}
++					report({ status: "ready", value: result.value });
++				}).catch((error) => {
++					report({ status: "error", message: error instanceof Error ? error.message : String(error) });
++				});
++				return () => {
++					current = false;
++					controller.abort();
++				};
++			}, [nonce, wide]);
++			(0, react.useEffect)(() => {
++				if (!open) return;
++				const onPointerDown = (event) => {
++					if (popoverRef.current?.contains(event.target)) return;
++					if (buttonRef.current?.contains(event.target)) return;
++					setOpen(false);
++				};
++				const onKeyDown = (event) => {
++					if (event.key === "Escape") setOpen(false);
++				};
++				document.addEventListener("pointerdown", onPointerDown);
++				document.addEventListener("keydown", onKeyDown);
++				return () => {
++					document.removeEventListener("pointerdown", onPointerDown);
++					document.removeEventListener("keydown", onKeyDown);
++				};
++			}, [open]);
++			if (!wide) return null;
++			const refresh = () => setNonce((value) => value + 1);
++			const openPopover = () => {
++				const rect = buttonRef.current?.getBoundingClientRect();
++				if (rect !== void 0) setAnchor({ top: rect.top, right: rect.right, left: rect.left, bottom: rect.bottom });
++				setOpen(true);
++			};
++			const formatAmount = (currency, amount) => `${currency === "CNY" ? "¥" : `${currency} `}${amount}`;
++			const info = state.status === "ready" ? state.value.infos[0] : void 0;
++			const total = info === void 0 ? Number.NaN : Number(info.totalBalance);
++			const low = state.status === "ready" && info !== void 0 && Number.isFinite(total) && total < LOW_BALANCE_THRESHOLD;
++			const label = state.status === "ready" ? `${t("balance.shortLabel")} ${formatAmount(info?.currency ?? "", info?.totalBalance ?? "")}` : state.status === "error" ? t("balance.unavailable") : t("balance.loading");
++			const title = state.status === "ready" ? `${t("balance.title")}: ${label}${low ? ` (${t("balance.low")})` : ""}` : state.status === "error" ? `${t("balance.unavailable")}: ${state.message}` : t("balance.loading");
++			const rowStyle = {
++				display: "flex",
++				alignItems: "center",
++				gap: 7,
++				width: "100%",
++				boxSizing: "border-box",
++				border: "none",
++				background: "none",
++				cursor: "pointer",
++				padding: "7px 4px",
++				font: "inherit",
++				fontSize: 14,
++				fontWeight: 700,
++				lineHeight: "20px",
++				color: low ? "var(--dsw-alias-state-warn-primary)" : "var(--dsw-alias-label-primary)",
++				whiteSpace: "nowrap",
++				overflow: "hidden",
++				textAlign: "left"
++			};
++			return (0, react_jsx_runtime.jsxs)(react.Fragment, {
++				children: [
++					(0, react_jsx_runtime.jsx)("button", {
++						ref: buttonRef,
++						type: "button",
++						style: rowStyle,
++						title,
++						"aria-label": `${t("balance.title")}: ${label}`,
++						onClick: openPopover,
++						children: [(0, react_jsx_runtime.jsx)(WalletIcon, {
++							size: 16,
++							flex: "none",
++							"aria-hidden": "true"
++						}), (0, react_jsx_runtime.jsx)("span", {
++							style: {
++								overflow: "hidden",
++								textOverflow: "ellipsis"
++							},
++							children: label
++						})]
++					}),
++					(0, react_jsx_runtime.jsx)(BalancePopover, {
++						open,
++						anchor,
++						popoverRef,
++						onClose: () => {
++							setOpen(false);
++						},
++						title: t("balance.title"),
++						hint: t("balance.detailHint"),
++						closeLabel: t("balance.close"),
++						footer: (0, react_jsx_runtime.jsxs)(react.Fragment, {
++							children: [
++								(0, react_jsx_runtime.jsx)("button", {
++									type: "button",
++									style: {
++										padding: "6px 12px",
++										border: "1px solid var(--dsw-alias-border-l2)",
++										borderRadius: 8,
++										background: "var(--dsw-alias-button-elevated-fill)",
++										color: "var(--dsw-alias-label-primary)",
++										font: "inherit",
++										fontSize: 13,
++										cursor: "pointer"
++									},
++									onClick: refresh,
++									children: t("balance.refresh")
++								}),
++								(0, react_jsx_runtime.jsx)("button", {
++									type: "button",
++									style: {
++										padding: "6px 12px",
++										border: "none",
++										borderRadius: 8,
++										background: "none",
++										color: "var(--dsw-alias-label-secondary)",
++										font: "inherit",
++										fontSize: 13,
++										cursor: "pointer"
++									},
++									onClick: () => {
++										setOpen(false);
++									},
++									children: t("balance.close")
++								})
++							]
++						}),
++						children: (0, react_jsx_runtime.jsx)(BalanceDetailBody, {
++							state,
++							info,
++							low,
++							formatAmount,
++							onRetry: refresh,
++							t
++						})
++					})
++				]
++			});
++		}
++		/**
++		* Wallet glyph for the balance entry: a rounded wallet body with a
++		* closure line and a coin, drawn with currentColor so it follows the
++		* surrounding label color.
++		* @param props - icon size in pixels.
++		* @returns the svg element.
++		*/
++		function WalletIcon({ size = 14 }) {
++			return (0, react_jsx_runtime.jsx)("svg", {
++				width: size,
++				height: size,
++				viewBox: "0 0 16 16",
++				fill: "none",
++				xmlns: "http://www.w3.org/2000/svg",
++				"aria-hidden": "true",
++				children: [
++					(0, react_jsx_runtime.jsx)("path", {
++						d: "M2.5 4.3h11a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-9a2 2 0 0 1-2-2V4.3Z",
++						stroke: "currentColor",
++						strokeWidth: 1.25,
++						strokeLinejoin: "round"
++					}),
++					(0, react_jsx_runtime.jsx)("path", {
++						d: "M2.5 6h11",
++						stroke: "currentColor",
++						strokeWidth: 1.25,
++						strokeLinecap: "round"
++					}),
++					(0, react_jsx_runtime.jsx)("circle", {
++						cx: 11,
++						cy: 9.5,
++						r: 1.8,
++						stroke: "currentColor",
++						strokeWidth: 1.1
++					}),
++					(0, react_jsx_runtime.jsx)("circle", {
++						cx: 11,
++						cy: 9.5,
++						r: 0.75,
++						fill: "currentColor"
++					})
++				]
++			});
++		}
++		/**
++		* Anchored details popover for the balance entry: a themed card pinned
++		* just above the trigger button (fixed positioning from the button's
++		* measured rect, so the popover stays put regardless of the sidebar's
++		* own layout), with title, optional hint, body, and footer. Closes on
++		* outside pointer-down, Escape, or the close button (outside-click
++		* detection lives in the owner via `popoverRef`).
++		* @param props - open flag, the anchor rect, a ref for outside-click detection, and card content.
++		* @returns null when closed or unanchored; otherwise the popover tree.
++		*/
++		function BalancePopover({ open, anchor, popoverRef, onClose, title, hint, closeLabel, footer, children }) {
++			if (!open || anchor === null) return null;
++			const width = Math.min(340, Math.max(220, window.innerWidth - 16));
++			const left = Math.max(8, Math.min(anchor.right - width, window.innerWidth - width - 8));
++			const preferAbove = anchor.top > 320;
++			const avail = preferAbove ? anchor.top - 16 : window.innerHeight - anchor.bottom - 16;
++			const maxHeight = Math.max(140, Math.min(Math.round(window.innerHeight * 0.7), avail));
++			const style = {
++				position: "fixed",
++				zIndex: 1000,
++				left,
++				width,
++				maxHeight,
++				overflow: "auto",
++				boxSizing: "border-box",
++				background: "var(--dsw-alias-bg-layer-1)",
++				border: "1px solid var(--dsw-alias-border-l2)",
++				borderRadius: 12,
++				boxShadow: "var(--dsw-shadow-lv3)",
++				padding: "14px 14px 10px"
++			};
++			if (preferAbove) style.bottom = window.innerHeight - anchor.top + 8;
++			else style.top = anchor.bottom + 8;
++			return (0, react_jsx_runtime.jsxs)("div", {
++				ref: popoverRef,
++				role: "dialog",
++				"aria-label": title,
++				style,
++				children: [
++					(0, react_jsx_runtime.jsxs)("div", {
++						style: {
++							display: "flex",
++							alignItems: "center",
++							justifyContent: "space-between",
++							gap: 8,
++							marginBottom: 4
++						},
++						children: [
++							(0, react_jsx_runtime.jsx)("h2", {
++								style: {
++									margin: 0,
++									fontSize: 15,
++									fontWeight: 600,
++									color: "var(--dsw-alias-label-primary)",
++									lineHeight: "22px"
++								},
++								children: title
++							}),
++							(0, react_jsx_runtime.jsx)("button", {
++								type: "button",
++								"aria-label": closeLabel,
++								style: {
++									border: "none",
++									background: "none",
++									cursor: "pointer",
++									padding: 4,
++									display: "inline-flex",
++									color: "var(--dsw-alias-label-secondary)"
++								},
++								onClick: onClose,
++								children: (0, react_jsx_runtime.jsx)(_deepseek_ai_dsh_client_ui_primitives.IconCloseOutline16, {
++									size: 14
++								})
++							})
++						]
++					}),
++					hint !== void 0 && (0, react_jsx_runtime.jsx)("p", {
++						style: {
++							margin: "0 0 8px",
++							fontSize: 12,
++							lineHeight: "18px",
++							color: "var(--dsw-alias-label-secondary)"
++						},
++						children: hint
++					}),
++					(0, react_jsx_runtime.jsx)("div", {
++						style: {
++							padding: "4px 0 8px"
++						},
++						children
++					}),
++					footer !== void 0 && (0, react_jsx_runtime.jsx)("div", {
++						style: {
++							display: "flex",
++							justifyContent: "flex-end",
++							gap: 8,
++							paddingTop: 10,
++							borderTop: "1px solid var(--dsw-alias-border-l1)"
++						},
++						children: footer
++					})
++				]
++			});
++		}
++		/**
++		* Body of the balance details dialog: a large total figure, the account
++		* availability and check time, and one row per balance-info entry
++		* (currency, topped-up, granted). Loading and failure states render their
++		* own compact copy with a retry control.
++		* @param props - the fetch state, the first balance-info row, formatters, and the bound dictionary.
++		* @returns the dialog body element tree.
++		*/
++		function BalanceDetailBody({ state, info, low, formatAmount, onRetry, t }) {
++			const textStyle = {
++				color: "var(--dsw-alias-label-primary)",
++				fontSize: 13,
++				lineHeight: "20px",
++				margin: "4px 0"
++			};
++			const rowStyle = {
++				display: "flex",
++				justifyContent: "space-between",
++				alignItems: "center",
++				gap: 12,
++				padding: "4px 0",
++				fontSize: 13,
++				lineHeight: "20px"
++			};
++			const labelStyle = {
++				color: "var(--dsw-alias-label-secondary)"
++			};
++			const valueStyle = {
++				color: "var(--dsw-alias-label-primary)",
++				fontWeight: 500
++			};
++			const row = (label, value) => (0, react_jsx_runtime.jsxs)("div", {
++				style: rowStyle,
++				children: [(0, react_jsx_runtime.jsx)("span", {
++					style: labelStyle,
++					children: label
++				}), (0, react_jsx_runtime.jsx)("span", {
++					style: valueStyle,
++					children: value
++				})]
++			});
++			const buttonStyle = {
++				marginTop: 8,
++				padding: "6px 12px",
++				border: "1px solid var(--dsw-alias-border-l2)",
++				borderRadius: 8,
++				background: "var(--dsw-alias-button-elevated-fill)",
++				color: "var(--dsw-alias-label-primary)",
++				font: "inherit",
++				fontSize: 13,
++				cursor: "pointer"
++			};
++			if (state.status === "loading") return (0, react_jsx_runtime.jsx)("p", {
++				style: textStyle,
++				children: t("balance.loading")
++			});
++			if (state.status === "error") return (0, react_jsx_runtime.jsxs)("div", {
++				children: [(0, react_jsx_runtime.jsx)("p", {
++					role: "alert",
++					style: {
++						...textStyle,
++						color: "var(--dsw-alias-state-error-primary)"
++					},
++					children: state.message
++				}), (0, react_jsx_runtime.jsx)("button", {
++					type: "button",
++					style: buttonStyle,
++					onClick: onRetry,
++					children: t("balance.retryAction")
++				})]
++			});
++			if (info === void 0) return (0, react_jsx_runtime.jsx)("p", {
++				style: textStyle,
++				children: t("balance.unavailable")
++			});
++			const checkedAt = new Date(state.value.checkedAt);
++			return (0, react_jsx_runtime.jsxs)("div", {
++				children: [
++					(0, react_jsx_runtime.jsx)("div", {
++						style: {
++							fontSize: 24,
++							fontWeight: 600,
++							lineHeight: "32px",
++							color: low ? "var(--dsw-alias-state-warn-primary)" : "var(--dsw-alias-label-primary)",
++							marginBottom: 8
++						},
++						children: formatAmount(info.currency, info.totalBalance)
++					}),
++					low && (0, react_jsx_runtime.jsx)("p", {
++						role: "status",
++						style: {
++							margin: "0 0 8px",
++							fontSize: 12,
++							lineHeight: "18px",
++							color: "var(--dsw-alias-state-warn-primary)"
++						},
++						children: t("balance.low")
++					}),
++					row(t("balance.account"), state.value.isAvailable ? t("balance.available") : t("balance.notAvailable")),
++					row(t("balance.currency"), info.currency),
++					row(t("balance.toppedUp"), formatAmount(info.currency, info.toppedUpBalance)),
++					row(t("balance.granted"), formatAmount(info.currency, info.grantedBalance)),
++					row(t("balance.updatedAt"), checkedAt.toLocaleString())
++				]
++			});
++		}
+ 		//#endregion
+ 		//#region lib/types/client/locales.js
+ 		/** `sidebar` namespace dictionaries: shell controls (brand row, New Session, fold toggle). */
+@@ -225,14 +678,52 @@ window.__ModuleLoader__.load({
+ 			"session.new": "新会话",
+ 			"session.new.label": "新建会话",
+ 			"toggle.open": "打开侧边栏",
+-			"toggle.collapse": "收起侧边栏"
++			"toggle.collapse": "收起侧边栏",
++			"balance.title": "API $$",
++			"balance.shortLabel": "API 余额",
++			"balance.loading": "余额…",
++			"balance.unavailable": "余额不可用",
++			"balance.retry": "点击刷新余额",
++			"balance.total": "总额",
++			"balance.granted": "赠送",
++			"balance.toppedUp": "充值",
++			"balance.close": "关闭",
++			"balance.refresh": "刷新",
++			"balance.retryAction": "重试",
++			"balance.available": "账户可用",
++			"balance.notAvailable": "账户不可用",
++			"balance.account": "账户状态",
++			"balance.updatedAt": "更新时间",
++			"balance.low": "余额偏低，建议及时充值",
++			"balance.currency": "币种",
++			"balance.detail": "余额详情",
++			"balance.detailHint": "点击刷新获取最新余额"
+ 		};
+ 		/** English dictionary, checked complete against the zh key set. */
+ 		const en = {
+ 			"session.new": "New Session",
+ 			"session.new.label": "New session",
+ 			"toggle.open": "Open sidebar",
+-			"toggle.collapse": "Collapse sidebar"
++			"toggle.collapse": "Collapse sidebar",
++			"balance.title": "API $$",
++			"balance.shortLabel": "API Balance",
++			"balance.loading": "Balance…",
++			"balance.unavailable": "Balance unavailable",
++			"balance.retry": "Click to refresh balance",
++			"balance.total": "Total",
++			"balance.granted": "Granted",
++			"balance.toppedUp": "Topped up",
++			"balance.close": "Close",
++			"balance.refresh": "Refresh",
++			"balance.retryAction": "Retry",
++			"balance.available": "Account available",
++			"balance.notAvailable": "Account unavailable",
++			"balance.account": "Account status",
++			"balance.updatedAt": "Updated",
++			"balance.low": "Balance is low, consider topping up",
++			"balance.currency": "Currency",
++			"balance.detail": "Balance details",
++			"balance.detailHint": "Click to refresh for the latest balance"
+ 		};
+ 		//#endregion
+ 		//#region lib/types/client/index.js
+@@ -289,4 +780,4 @@ window.__ModuleLoader__.load({
+ 	}
+ });
+ 
+-//# sourceMappingURL=client.js.map
+\ No newline at end of file
++//# sourceMappingURL=client.js.map

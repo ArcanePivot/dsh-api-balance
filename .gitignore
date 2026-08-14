@@ -1,0 +1,10 @@
+# backup files produced by install.ps1 (pristine originals)
+backup/
+# backup files produced by install.sh on macOS
+backup-macos/
+
+# Local credentials and operating-system metadata
+.env
+.env.*
+!.env.example
+.DS_Store

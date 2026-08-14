@@ -1,0 +1,188 @@
+diff --git a/lib/index.js b/lib/index.js
+index 9e3afa7..e19905b 100644
+--- a/lib/index.js
++++ b/lib/index.js
+@@ -3607,7 +3607,111 @@ function createApiProxy(ctx, defaults) {
+ 						}
+ 					});
+ 				}
+-			}
++			},
++			/**
++			* Read the DeepSeek account balance for the `deepseek-official` route:
++			* resolve the endpoint and key the same way the adapter does (the
++			* `llm-deepseek` settings section over `$DEEPSEEK_BASE_URL` /
++			* `https://api.deepseek.com`, and the credential seam over the ambient
++			* environment), then query `GET /user/balance`. The key never crosses the
++			* host-to-browser boundary. Transport and HTTP failures return `ok: false`
++			* value so the UI can render an error row; a missing credential or
++			* cancellation refuses the RPC itself.
++			* @param request - the RPC request (no payload).
++			* @param signal - caller/connection lifetime.
++			* @returns the normalized balance view (see {@link llmBalanceValueSchema}).
++			*/
++			async balance(request, signal) {
++				const provider = "deepseek-official";
++				const DEFAULT_BASE_URL = "https://api.deepseek.com";
++				const DEFAULT_API_KEY_ENV = "DEEPSEEK_API_KEY";
++				let baseURL;
++				let apiKeyEnv = DEFAULT_API_KEY_ENV;
++				const settings = ctx.get("settings");
++				if (settings !== void 0) {
++					try {
++						const descriptor = settings.describe({ redactSecrets: true }).find((candidate) => String(candidate.ns) === "llm-deepseek");
++						const value = descriptor === void 0 ? void 0 : descriptor.value;
++						if (typeof value?.baseURL === "string" && value.baseURL.trim().length > 0) baseURL = value.baseURL;
++						if (typeof value?.apiKeyEnv === "string" && value.apiKeyEnv.trim().length > 0) apiKeyEnv = value.apiKeyEnv;
++					} catch {
++						/* the settings plane is advisory; the defaults below still apply */
++					}
++				}
++				const envBaseURL = process.env?.DEEPSEEK_BASE_URL;
++				baseURL = (baseURL ?? envBaseURL ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
++				let apiKey;
++				const credentials = ctx.get("credentials");
++				if (credentials !== void 0) {
++					const hit = await credentials.resolve(credentialRef(apiKeyEnv));
++					if (hit !== void 0) apiKey = hit.value;
++				} else {
++					const ambient = process.env?.[apiKeyEnv];
++					if (typeof ambient === "string" && ambient.length > 0) apiKey = ambient;
++				}
++				if (apiKey === void 0 || apiKey.length === 0) return err(request, {
++					code: "missing-credential",
++					message: `llm.balance: no API key for ${provider}; store ${apiKeyEnv} through the credentials service`,
++					details: { provider, apiKeyEnv }
++				});
++				if (isAborted(signal)) return err(request, {
++					code: "cancelled",
++					message: "balance check was aborted",
++					details: {}
++				});
++				const requestController = new AbortController();
++				const abortRequest = () => requestController.abort(signal.reason);
++				signal.addEventListener("abort", abortRequest, { once: true });
++				const timeout = setTimeout(() => requestController.abort(), 1e4);
++				try {
++					const response = await fetch(`${baseURL}/user/balance`, {
++						headers: { authorization: `Bearer ${apiKey}` },
++						signal: requestController.signal
++					});
++					const checkedAt = Date.now();
++					if (!response.ok) {
++						return ok(request, {
++							ok: false,
++							provider,
++							baseURL,
++							checkedAt,
++							message: `DeepSeek balance API returned HTTP ${response.status}`
++						});
++					}
++					const payload = await response.json();
++					const isAvailable = payload?.is_available === true;
++					const infos = Array.isArray(payload?.balance_infos) ? payload.balance_infos.map((info) => ({
++						currency: String(info?.currency ?? ""),
++						totalBalance: String(info?.total_balance ?? ""),
++						grantedBalance: String(info?.granted_balance ?? ""),
++						toppedUpBalance: String(info?.topped_up_balance ?? "")
++					})) : [];
++					return ok(request, { ok: true, provider, baseURL, checkedAt, isAvailable, infos });
++				} catch (error) {
++					if (isAborted(signal)) return err(request, {
++						code: "cancelled",
++						message: "balance check was aborted",
++						details: {}
++					});
++					if (requestController.signal.aborted) return ok(request, {
++						ok: false,
++						provider,
++						baseURL,
++						checkedAt: Date.now(),
++						message: "DeepSeek balance request timed out after 10 seconds"
++					});
++					return ok(request, {
++						ok: false,
++						provider,
++						baseURL,
++						checkedAt: Date.now(),
++						message: error instanceof Error ? error.message : String(error)
++					});
++				} finally {
++					clearTimeout(timeout);
++					signal.removeEventListener("abort", abortRequest);
++				}
++			},
+ 		},
+ 		events: {
+ 			mux(_request, signal) {
+@@ -4586,6 +4690,37 @@ const llmDiscoverModelsRequestSchema = z$1.object({
+ });
+ /** llm.discoverModels response value. */
+ const llmDiscoverModelsValueSchema = z$1.object({ models: z$1.array(discoveredModelViewSchema) });
++/** One normalized DeepSeek balance-info row (mapped from the `/user/balance` wire fields). */
++const balanceInfoViewSchema = z$1.object({
++	currency: z$1.string(),
++	totalBalance: z$1.string(),
++	grantedBalance: z$1.string(),
++	toppedUpBalance: z$1.string()
++});
++/** llm.balance request payload. */
++const llmBalanceRequestSchema = z$1.object({});
++/**
++* llm.balance response value: a normalized balance snapshot, or a host-side
++* failure report (transport / HTTP errors ride `ok: false` so the UI can still
++* render a usable row; a missing credential or cancellation is a refused RPC).
++*/
++const llmBalanceValueSchema = z$1.discriminatedUnion("ok", [
++	z$1.object({
++		ok: z$1.literal(true),
++		provider: z$1.string().min(1),
++		baseURL: z$1.string().min(1),
++		checkedAt: z$1.number(),
++		isAvailable: z$1.boolean(),
++		infos: z$1.array(balanceInfoViewSchema)
++	}),
++	z$1.object({
++		ok: z$1.literal(false),
++		provider: z$1.string().min(1),
++		baseURL: z$1.string().min(1),
++		checkedAt: z$1.number(),
++		message: z$1.string()
++	})
++]);
+ //#endregion
+ //#region lib/types/api/subagents.schema.js
+ /** Zod schemas for the browser-safe subagent domain. */
+@@ -4874,7 +5009,11 @@ const UNARY_ROUTES = {
+ 	"llm.discoverModels": {
+ 		schema: llmDiscoverModelsRequestSchema,
+ 		invoke: (api, r, signal) => api.llm.discoverModels(r, signal)
+-	}
++	},
++	"llm.balance": {
++		schema: llmBalanceRequestSchema,
++		invoke: (api, r, signal) => api.llm.balance(r, signal)
++	},
+ };
+ /** Route lookup that narrows an arbitrary path segment to a map key (single cast point for the string→key refinement). */
+ function methodFor(path) {
+@@ -5290,7 +5429,8 @@ const UNARY_VALUE_SCHEMAS = {
+ 	"credentials.unset": credentialsUnsetValueSchema,
+ 	"llm.providers": llmProvidersValueSchema,
+ 	"llm.models": llmModelsValueSchema,
+-	"llm.discoverModels": llmDiscoverModelsValueSchema
++	"llm.discoverModels": llmDiscoverModelsValueSchema,
++	"llm.balance": llmBalanceValueSchema,
+ };
+ /** Default timeout for bounded unary calls (rpc-compare 2026-07-19: a hung host must not leave callers pending forever). */
+ const DEFAULT_TIMEOUT_MS = 3e4;
+@@ -5518,7 +5658,8 @@ var AbstractApiClient = class {
+ 	llm = {
+ 		providers: (payload, signal) => this.callUnary("llm.providers", payload, signal),
+ 		models: (payload, signal) => this.callUnary("llm.models", payload, signal),
+-		discoverModels: (payload, signal) => this.callUnary("llm.discoverModels", payload, signal)
++		discoverModels: (payload, signal) => this.callUnary("llm.discoverModels", payload, signal),
++		balance: (payload, signal) => this.callUnary("llm.balance", payload, signal),
+ 	};
+ 	events = {
+ 		mux: (payload, signal, onOpen) => this.openMux(payload, signal, onOpen),
