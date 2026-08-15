@@ -281,8 +281,9 @@ window.__ModuleLoader__.load({
 		}
 		/**
 		* Sidebar footer balance entry: an API icon plus the current DeepSeek
-		* account balance, fetched by POSTing the same-origin `llm.balance` RPC
-		* endpoint directly (the API key stays on the host). Clicking opens a
+		* account balance and today's estimated local usage cost, fetched by
+		* POSTing the same-origin `llm.balance` and `llm.usage` RPC endpoints
+		* directly (the API key stays on the host). Clicking opens a
 		* details dialog with the full granted/topped-up breakdown, account
 		* availability, and the check time, plus a refresh control. Hidden in
 		* the collapsed rail, where the footer centers icon-only controls.
@@ -291,7 +292,7 @@ window.__ModuleLoader__.load({
 		*/
 		function SidebarBalance({ wide, t }) {
 			const [state, setState] = (0, react.useState)({ status: "loading" });
-			const [usageState, setUsageState] = (0, react.useState)({ status: "idle" });
+			const [usageState, setUsageState] = (0, react.useState)({ status: "loading" });
 			const [nonce, setNonce] = (0, react.useState)(0);
 			const [open, setOpen] = (0, react.useState)(false);
 			const [selectedMonth, setSelectedMonth] = (0, react.useState)(currentMonthKey);
@@ -324,7 +325,7 @@ window.__ModuleLoader__.load({
 				};
 			}, [nonce, wide]);
 			(0, react.useEffect)(() => {
-				if (!wide || !open) return;
+				if (!wide) return;
 				let current = true;
 				const controller = new AbortController();
 				setUsageState({ status: "loading" });
@@ -338,7 +339,7 @@ window.__ModuleLoader__.load({
 					current = false;
 					controller.abort();
 				};
-			}, [nonce, open, selectedMonth, wide]);
+			}, [nonce, selectedMonth, wide]);
 			(0, react.useEffect)(() => {
 				if (!open) return;
 				const onPointerDown = (event) => {
@@ -367,7 +368,9 @@ window.__ModuleLoader__.load({
 			const info = state.status === "ready" ? state.value.infos[0] : void 0;
 			const total = info === void 0 ? Number.NaN : Number(info.totalBalance);
 			const low = state.status === "ready" && info !== void 0 && Number.isFinite(total) && total < LOW_BALANCE_THRESHOLD;
-			const label = state.status === "ready" ? `${t("balance.shortLabel")} ${formatAmount(info?.currency ?? "", info?.totalBalance ?? "")}` : state.status === "error" ? t("balance.unavailable") : t("balance.loading");
+			const balanceLabel = state.status === "ready" ? `${t("balance.shortLabel")} ${formatAmount(info?.currency ?? "", info?.totalBalance ?? "")}` : state.status === "error" ? t("balance.unavailable") : t("balance.loading");
+			const todayCost = usageState.status === "ready" ? formatEstimatedCost(usageState.value.totals.today.estimatedCostCny) : usageState.status === "error" ? "--" : "…";
+			const label = `${balanceLabel} · ${t("usage.todaySpent")} ${todayCost}`;
 			const title = state.status === "ready" ? `${t("balance.title")}: ${label}${low ? ` (${t("balance.low")})` : ""}` : state.status === "error" ? `${t("balance.unavailable")}: ${state.message}` : t("balance.loading");
 			const rowStyle = {
 				display: "flex",
@@ -1275,6 +1278,7 @@ window.__ModuleLoader__.load({
 			"usage.model.pro": "V4 Pro",
 			"usage.loading": "正在汇总本机用量…",
 			"usage.today": "今日",
+			"usage.todaySpent": "今日使用",
 			"usage.week": "本周",
 			"usage.month": "本月",
 			"usage.allTime": "累计",
@@ -1339,6 +1343,7 @@ window.__ModuleLoader__.load({
 			"usage.model.pro": "V4 Pro",
 			"usage.loading": "Summarizing local usage…",
 			"usage.today": "Today",
+			"usage.todaySpent": "Today",
 			"usage.week": "This week",
 			"usage.month": "This month",
 			"usage.allTime": "All time",

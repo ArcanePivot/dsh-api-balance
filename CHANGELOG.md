@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-08-15
+
+### Added
+
+- 展开侧边栏后在后台汇总本机当天用量，底部常驻显示 `API 余额 ¥xx · 今日使用 ¥xx`
+- 英文界面同步显示 `API Balance ¥xx · Today ¥xx`
+
+### Correctness
+
+- 今日金额复用详情面板的逐请求、分模型、分时段官方价格估算，不另建第二套统计口径
+- 余额接口失败时仍可独立显示本机今日用量；用量仍只覆盖本机保留会话，最终扣费以官方账单为准
+
 ## [0.4.1] - 2026-08-15
 
 ### Fixed
@@ -88,7 +100,8 @@
 - Windows 10 / 11
 - macOS，Bash 3.2 或更新版本
 
-[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.2.0...v0.3.0

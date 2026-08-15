@@ -30,11 +30,11 @@
 推荐固定到正式发布标签，避免以后 `main` 更新时意外安装尚未发布的代码：
 
 ```sh
-git clone --branch v0.4.1 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.4.2 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-也可以从 [`v0.4.1` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1) 下载源码包。解压后，在包含 `install.ps1` 和 `install.sh` 的目录打开终端。
+也可以从 [`v0.4.2` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.2) 下载源码包。解压后，在包含 `install.ps1` 和 `install.sh` 的目录打开终端。
 
 ## Windows
 
@@ -147,7 +147,7 @@ launchd 托管的 DSH 应重启原服务：
 ## 验收
 
 1. 浏览器普通刷新一次，不需要清除站点数据。
-2. 侧边栏底部出现 `API 余额` 或 `API Balance`。
+2. 侧边栏底部出现 `API 余额 ¥xx · 今日使用 ¥xx` 或 `API Balance ¥xx · Today ¥xx`。
 3. 点击后显示 `API $$` 详情弹窗。
 4. 点击刷新后能看到账户状态、币种、充值余额、赠送余额和更新时间。
 5. 点选 `全部 / V4 Flash / V4 Pro`，确认各模型的今日、本周、本月、累计 Token、预估费用与每日柱状图会联动更新。
@@ -155,7 +155,7 @@ launchd 托管的 DSH 应重启原服务：
 7. 切换上个月后能看到对应月份；切回本月时，未来日期应为零。
 8. 原有项目、会话和对话记录保持不变。
 
-首次打开用量面板可能需要扫描本机保留的会话日志。当前 DSH 进程内，未变化会话会复用缓存，后续刷新通常更快。
+侧边栏展开后会在后台扫描本机保留的会话日志，以便补上今日预估费用。当前 DSH 进程内，未变化会话会复用缓存，后续刷新通常更快。
 
 安装器本身可以重复执行。目标文件已经是本项目版本且备份有效时，它不会重复覆盖；从候选版提升到同代码的正式版时，只更新备份清单版本。
 
@@ -165,12 +165,12 @@ launchd 托管的 DSH 应重启原服务：
 
 ```sh
 git fetch --tags
-git checkout v0.4.1
+git checkout v0.4.2
 ```
 
-然后在 Windows 运行 `.\install.ps1 -WhatIf`、`.\install.ps1`，或在 macOS 运行 `./install.sh --dry-run`、`./install.sh`。从 `v0.2.0` 或 `v0.3.0` 升级时，安装器会确认当前文件确实属于旧版补丁，再整体替换并更新备份清单；从 `v0.4.0-rc.1` 或 `v0.4.0` 升级且运行文件已经相同时，只提升清单版本。对话记录不会参与这个过程。
+然后在 Windows 运行 `.\install.ps1 -WhatIf`、`.\install.ps1`，或在 macOS 运行 `./install.sh --dry-run`、`./install.sh`。从 `v0.2.0`、`v0.3.0` 或 `v0.4.1` 升级时，安装器会确认当前文件确实属于旧版补丁，再整体替换并更新备份清单；从 `v0.4.0-rc.1` 或 `v0.4.0` 升级时也会保留并复用经过校验的官方原件。对话记录不会参与这个过程。
 
-如果你下载到了一个全新的 `v0.4.1` 目录，先回到旧版目录运行卸载器恢复官方文件，再用新目录安装。旧版源码目录属于安装介质，可在确认官方文件已经恢复后删除。不要手工复制其他机器或其他 DSH 版本的备份目录，也不要绕过“目标文件不是官方原件”的保护。
+如果你下载到了一个全新的 `v0.4.2` 目录，先回到旧版目录运行卸载器恢复官方文件，再用新目录安装。旧版源码目录属于安装介质，可在确认官方文件已经恢复后删除。不要手工复制其他机器或其他 DSH 版本的备份目录，也不要绕过“目标文件不是官方原件”的保护。
 
 ## 升级 DSH
 
