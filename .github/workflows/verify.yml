@@ -1,4 +1,4 @@
-name: Verify patches
+name: Verify native plugin
 
 on:
   push:
@@ -12,9 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  verify:
+  build-and-macos-lifecycle:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -22,20 +22,58 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 20
+          node-version: 22
 
-      - name: Verify patches and compiled files
-        run: bash ./scripts/verify-patches.sh
+      - name: Enable pinned pnpm
+        run: |
+          corepack enable
+          corepack prepare pnpm@11.19.0 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck and unit tests
+        run: |
+          pnpm run check
+          pnpm test
+
+      - name: Build precompiled package
+        run: |
+          pnpm run build
+          git diff --exit-code -- lib
+
+      - name: Inspect release tarball
+        run: npm pack --dry-run
+
+      - name: Verify frozen legacy migration artifacts
+        run: pnpm run test:legacy
+
+      - name: Test native and legacy macOS lifecycle
+        run: pnpm run test:lifecycle:macos
+
+  windows-lifecycle:
+    runs-on: windows-latest
+    timeout-minutes: 12
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
 
       - name: Validate PowerShell syntax
-        shell: pwsh
+        shell: powershell
         run: |
           $errors = @()
           foreach ($path in @(
             "install.ps1",
             "uninstall.ps1",
             "relaunch-dsh-web.ps1",
-            "scripts/common.ps1"
+            "scripts/common.ps1",
+            "scripts/test-powershell-whatif.ps1",
+            "scripts/test-windows-lifecycle.ps1"
           )) {
             $tokens = $null
             $parseErrors = $null
@@ -50,3 +88,7 @@ jobs:
             $errors | ForEach-Object { Write-Error $_ }
             exit 1
           }
+
+      - name: Test native and legacy Windows lifecycle
+        shell: powershell
+        run: .\scripts\test-windows-lifecycle.ps1

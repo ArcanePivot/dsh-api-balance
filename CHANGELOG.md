@@ -4,6 +4,28 @@
 
 ## [Unreleased]
 
+## [0.5.0-rc.1] - 2026-08-15
+
+### Changed
+
+- 从覆盖 `dsh-host-apiproxy` / `dsh-client-ui-sidebar` 编译文件，重构为可由 `dsh plugin` 安装的原生 Cordis bundle
+- 宿主端通过 `ctx.webServer.register()` 提供精确 GET 路由，客户端通过 `sidebar.footer.action` 与 `shell.overlay` 插槽注册界面
+- 保留原有余额、分模型 Token、今日/本周/本月/累计费用、每日柱状图、峰谷价格与中英文界面
+- 原生分发包不再包含 DSH 修改产物；旧 `files/` / `patches/` 只用于安全迁移 `v0.4.x`
+
+### Added
+
+- TypeScript 源码、预构建 ESM、类型声明与 `cordis.patch.yml`
+- Host/Client 单元测试，覆盖路由安全、价格边界、分叉去重、模型拆分与 Cordis 卸载释放
+- 真实 DSH 隔离安装验收，以及桌面/390 px 移动端 Playwright 几何、溢出、截图和控制台检查
+- Windows PowerShell 5.1 与 macOS 原生安装、重复安装、预检、卸载、重复卸载、会话保留和旧补丁迁移测试
+
+### Migration
+
+- 包装安装器会识别同目录的旧备份，校验后事务式恢复官方原件，再安装原生 bundle
+- 卸载通过 profile 移除依赖与组合层；宿主路由、界面插槽和进程缓存随 Cordis 生命周期释放
+- 所有安装、升级和卸载路径均不修改 `DSH_HOME/sessions`
+
 ## [0.4.2] - 2026-08-15
 
 ### Added
@@ -100,7 +122,8 @@
 - Windows 10 / 11
 - macOS，Bash 3.2 或更新版本
 
-[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.5.0-rc.1...HEAD
+[0.5.0-rc.1]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.2...v0.5.0-rc.1
 [0.4.2]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.3.0...v0.4.0

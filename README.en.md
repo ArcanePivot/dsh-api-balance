@@ -1,38 +1,37 @@
 <h1 align="center">API $$</h1>
 
-<p align="center"><strong>Your DeepSeek API balance, per-model Token usage, and cost estimates in the DSH sidebar.</strong></p>
+<p align="center"><strong>DeepSeek API balance, local Token analytics, and estimated cost in the native DSH sidebar.</strong></p>
 
-<p align="center">See what V4 Flash and V4 Pro used and cost by price period without exposing the API key to the browser.</p>
+<p align="center">See what V4 Flash and V4 Pro used across pricing windows without opening another site or exposing the API key to the browser.</p>
 
 <p align="center">
   <a href="README.md">简体中文</a> ·
   <strong>English</strong> ·
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.2">v0.4.2</a> ·
-  <a href="#quick-install">Quick install</a> ·
-  <a href="INSTALL.en.md">Full install guide</a> ·
+  <a href="#installation">Install</a> ·
+  <a href="INSTALL.en.md">Full guide</a> ·
   <a href="SECURITY.md">Security</a> ·
   <a href="CHANGELOG.md">Changelog</a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml"><img src="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml/badge.svg" alt="Verify patches"></a>
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.2"><img src="https://img.shields.io/badge/release-v0.4.2-16a34a?style=flat-square" alt="v0.4.2 release"></a>
-  <img src="https://img.shields.io/badge/DSH-0.1.0--rc.6%20only-111827?style=flat-square" alt="DSH 0.1.0-rc.6 only">
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml"><img src="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml/badge.svg" alt="Native plugin checks"></a>
+  <img src="https://img.shields.io/badge/plugin-native%20Cordis-16a34a?style=flat-square" alt="Native Cordis plugin">
+  <img src="https://img.shields.io/badge/tested%20DSH-0.1.0--rc.6-111827?style=flat-square" alt="Tested on DSH 0.1.0-rc.6">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2563eb?style=flat-square" alt="Windows and macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
 </p>
 
 > [!IMPORTANT]
-> `v0.4.2` supports **`@deepseek-ai/dsh@0.1.0-rc.6` only**. This is an unofficial, version-locked patch package, not a native Cordis plugin. The installers refuse any other DSH version or unrecognized target file.
+> `v0.5.x` replaces the old compiled-file patch with a **native Cordis bundle**. Installation and removal use the official `dsh plugin` command, do not overwrite DSH core files, and never touch the session directory. DeepSeek Harness remains a developer preview; the fully tested baseline is currently `@deepseek-ai/dsh@0.1.0-rc.6`.
 
-## See it work
+## UI
 
-| Simplified Chinese | English |
+| Chinese UI | English UI |
 | --- | --- |
-| ![Chinese API balance, per-model Token usage, and peak pricing](docs/screenshots/api-balance-zh.png) | ![English API Balance, per-model Token usage, and peak pricing](docs/screenshots/api-balance-en.png) |
+| ![Chinese API balance, per-model Token usage, and peak pricing](docs/screenshots/api-balance-zh.png) | ![English API balance, per-model Token usage, and peak pricing](docs/screenshots/api-balance-en.png) |
 
 <details>
-<summary>View the 390 px mobile layout</summary>
+<summary>390 px mobile viewport</summary>
 
 <p align="center">
   <img src="docs/screenshots/api-balance-mobile.png" width="360" alt="API $$ per-model usage and pricing in a 390 px mobile viewport">
@@ -40,164 +39,126 @@
 
 </details>
 
-The screenshots reproduce the DSH Web UI validated on a live installation. Balance, usage, cost, timestamp, and session-count values are synthetic.
+Screenshots use the real DSH Web UI with demo balance, usage, cost, time, and session values.
 
-## Why install it
+## Highlights
 
-| Balance and usage together | Host-only API key | Reversible install |
+| Balance and usage together | Host-only key handling | Native, reversible install |
 | --- | --- | --- |
-| The sidebar keeps the current balance and today's estimated cost visible; click it for balance details, local Token usage, and daily trends. | The browser calls same-origin DSH routes. The API key never enters the browser request and is never returned to the client. | The first install stores checksummed official files. A successful uninstall restores them and removes all installation state. |
+| The sidebar shows balance and today's estimated spend; the panel adds per-model usage, trends, and pricing. | The browser calls same-origin DSH routes. The API key is never returned to the client or written into plugin files. | DSH loads the bundle through a profile. Removal unregisters the layer and dependency without leaving core-file changes. |
 
-- `API 余额 ¥xx · 今日使用 ¥xx` in Simplified Chinese and `API Balance ¥xx · Today ¥xx` in English
-- Warning color below `20 CNY`
-- Today, this week, this month, and all-time Token totals; weeks start on Monday
-- Select `All / V4 Flash / V4 Pro` to inspect Token totals, calls, and daily trends separately
-- Estimate period costs from the official CNY rate effective when each call occurred
-- Inspect the before-change, off-peak, and peak prices with the active phase, Beijing peak windows, and official source shown in the panel
-- Today's cache-hit rate and a month-switchable daily usage bar chart
-- Backfill from retained local DSH sessions without double-counting forked history
-- Manual refresh, outside-click close, and `Esc` close
-- Fallback for HTTP and older Safari environments without `crypto.randomUUID()`
-- Windows and macOS install, uninstall, and restart helpers
+- Sidebar label: `API Balance ¥xx · Today ¥xx` in English and `API 余额 ¥xx · 今日使用 ¥xx` in Chinese
+- Selectable `All / V4 Flash / V4 Pro` views with Tokens, calls, estimated cost, and daily bars
+- Today, week, month, and all-time totals; weeks start on Monday
+- Price each call with the official CNY schedule active at its timestamp
+- Separate cache-hit input, cache-miss input, and output costs
+- Daily chart with month navigation and today's cache-hit rate
+- Read retained local DSH sessions while excluding copied fork prefixes
+- Low-balance warning below `20 CNY`; local usage still works if the balance endpoint fails
+- Chinese, English, narrow screens, manual refresh, outside click, and `Esc`
 
-## Quick install
+## Installation
 
 ### 1. Prepare DSH and the API key
 
-The patch locates an **npm global installation** of the exact supported version. It cannot patch a temporary DSH copy launched only through `npx`.
-
 ```sh
 npm install -g @deepseek-ai/dsh@0.1.0-rc.6
+dsh --version
 ```
 
-After starting DSH, save the API key in the DeepSeek card under `Settings -> Models`, or expose `DEEPSEEK_API_KEY` to the DSH process environment.
+Save the DeepSeek key under `Settings -> Models`, or expose `DEEPSEEK_API_KEY` to the DSH process.
 
-### 2. Get the project
+### 2. Install the native bundle
+
+Download the current `.tgz` asset from [Releases](https://github.com/ArcanePivot/dsh-api-balance/releases), then run from the download directory:
 
 ```sh
-git clone --branch v0.4.2 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
-cd dsh-api-balance
+dsh plugin --profile web add ./arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz
+dsh --profile web --dump-config
 ```
 
-You can also download the source archive from the [`v0.4.2` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.2) and run the following commands from the extracted directory. Pinning the version avoids installing unreleased changes from a future `main` branch.
+The dump should contain `@arcanepivot/dsh-api-balance`. Restart the existing `dsh web` process and refresh normally. Do not clear site data; conversations remain unchanged.
 
-### 3A. Windows
+The repository also ships wrappers that migrate a legacy patch before installing the bundle:
 
 ```powershell
-.\install.ps1 -WhatIf  # Validate version, files, and backups without changing anything
-.\install.ps1          # Back up official files, install, and verify SHA-256
-.\relaunch-dsh-web.ps1 # Restart a manual DSH process on the default 127.0.0.1:3080
+# Windows
+.\install.ps1 -PackageSpec .\arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz -WhatIf
+.\install.ps1 -PackageSpec .\arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz
 ```
-
-For a Task Scheduler deployment, restart the original task so its environment, permission mode, and hidden-window behavior remain intact:
-
-```powershell
-.\relaunch-dsh-web.ps1 -TaskName "<your DSH task name>"
-```
-
-### 3B. macOS
 
 ```bash
-./install.sh --dry-run  # Validate without changing anything
-./install.sh            # Back up official files, install, and verify SHA-256
-./relaunch-dsh-web.sh   # Restart a manual DSH process on the default 127.0.0.1:3080
+# macOS
+./install.sh --package-spec ./arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz --dry-run
+./install.sh --package-spec ./arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz
 ```
 
-For a launchd deployment, restart the original service:
+See the [full install guide](INSTALL.en.md) for custom profiles, managed restarts, and troubleshooting.
 
-```bash
-./relaunch-dsh-web.sh --launchd-label "<your launchd label>"
-```
+## Migrating from v0.4.x
 
-Refresh the browser once after installation. You do not need to clear site data or conversation history. Custom ports, PowerShell execution policy, uninstall, upgrades, and common failures are covered in the [full install guide](INSTALL.en.md).
+If the original checkout still contains `backup/` or `backup-macos/`, switch that **same directory** to `v0.5.x` and run the wrapper. It verifies the old state, restores the pristine DSH files transactionally, removes the old backup state, and then installs the native bundle. Sessions are not read, copied, or deleted.
 
-## How it works
+Migration stops if a target is neither the known official file nor a known API $$ patch. If the old checkout is gone, recover the matching `v0.4.2` checkout and its backup to uninstall first, then install the native release.
+
+## Architecture
 
 ```text
-Browser                               DSH host
-POST /api/llm.balance  ----------->  Resolve DEEPSEEK_API_KEY
-No API key in request                 GET {baseURL}/user/balance
-                        <-----------  Return normalized balance fields
+DSH browser client                    DSH host
+sidebar.footer.action  ----------->  native sidebar action
+shell.overlay          ----------->  native details panel
 
-POST /api/llm.usage    ----------->  Read retained local DSH session logs
-Month + browser timezone              Aggregate locally; no external request
-                        <-----------  Return per-model Tokens, estimated costs, dates, and coverage
+GET /api/api-balance/balance --->  credentials/settings -> DeepSeek /user/balance
+GET /api/api-balance/usage   --->  aggregate retained local DSH session events
+                         <---  balance and aggregates only; no key, prompts, or replies
 ```
 
-The host reads `baseURL`, `apiKeyEnv`, and the API key from the `llm-deepseek` settings and DSH credentials service. If a custom `baseURL` is configured, the host sends the key to that endpoint, matching the DeepSeek adapter behavior. Use only endpoints you trust.
+The host registers two exact routes with `ctx.webServer.register()`. The client registers UI through the official `sidebar.footer.action` and `shell.overlay` slots. Cordis owns mount and disposal; the plugin no longer rewrites `dsh-host-apiproxy` or `dsh-client-ui-sidebar`.
 
-Usage is grouped in the browser's timezone, and each week begins Monday at midnight. The model comes from each recorded DSH response source. Cost separates cache-hit input, cache-miss input, and output Tokens, then applies the [official DeepSeek CNY rate](https://api-docs.deepseek.com/quick_start/pricing/) effective at the call time. Before 2026-08-16 16:00 UTC it uses the previous flat price; afterward, peak windows are 01:00–04:00 and 06:00–10:00 UTC and all other hours are off-peak.
+Usage follows the browser's IANA timezone and Monday-based weeks. Estimated cost separates cache-hit input, cache-miss input, and output Tokens against the [official DeepSeek CNY schedule](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/). Before 2026-08-17 00:00 Beijing time it uses the legacy schedule; afterwards peak windows are 09:00-12:00 and 14:00-18:00, with off-peak pricing otherwise.
 
-These figures cover retained local DSH sessions only: deleted logs and calls made by other clients are excluded, so this is not the official billing ledger. Prices can change; the project uses a versioned table with a dated official source, and the provider bill remains authoritative. Expanding the sidebar starts a background backfill so today's estimate can appear in the footer; unchanged sessions are cached for the lifetime of the current DSH process.
-
-Balance and usage totals are account information. Anyone who can access the DSH Web UI can view them after installation, although they cannot view the API key, prompts, or response text. Keep the existing DSH access controls in place and read the [security notes](SECURITY.md).
+Totals cover only retained local DSH sessions. They exclude deleted logs and calls from other clients and are not an official DeepSeek bill. The provider's bill remains authoritative.
 
 ## Compatibility
 
-| Item | Supported range |
+| Item | Tested baseline |
 | --- | --- |
-| DSH | `0.1.0-rc.6` only |
+| DSH | `0.1.0-rc.6` |
+| Node.js | `20.16+` |
 | Windows | Windows 10 / 11; Windows PowerShell 5.1 or PowerShell 7 |
-| macOS | Apple Bash 3.2 or newer; Node.js and npm required |
-| UI languages | Simplified Chinese and English |
-| Live Windows verification | Windows 10, Node 24, DSH `0.1.0-rc.6` |
-| macOS lifecycle verification | macOS Bash 3.2, Node 22, isolated official rc.6 npm files |
+| macOS | Bash 3.2 or newer |
+| UI | Chinese and English; desktop and 390 px mobile |
 
-> Both Windows and macOS installers pass isolated preflight, install, uninstall, repeated-uninstall, tamper-rejection, and zero-residue lifecycle tests. Run `-WhatIf` or `--dry-run` before a live change.
+Native isolation changes the upgrade risk from “overwriting core files” to “whether official services and slots changed.” It does not justify blind compatibility claims. Every new DSH release still needs type, lifecycle, and real-UI verification.
 
-## Uninstall and upgrade
+## Uninstall
 
-Windows:
-
-```powershell
-.\uninstall.ps1 -WhatIf
-.\uninstall.ps1
+```sh
+dsh plugin --profile web remove @arcanepivot/dsh-api-balance
 ```
 
-macOS:
+You can also use `uninstall.ps1` or `uninstall.sh`. Restart DSH and refresh afterwards. The dependency, bundle layer, host routes, and client registrations disappear; retained conversations remain in DSH-owned storage.
 
-```bash
-./uninstall.sh --dry-run
-./uninstall.sh
+## Development
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm test
+pnpm run build
+pnpm pack
 ```
 
-Successful uninstall restores both DSH files to their pre-install SHA-256 values and removes the project-created `backup/` or `backup-macos/` directory and manifest. Restart the original DSH process afterward to unload the old in-memory code. The source checkout is user-downloaded installation media and is not self-deleted; remove that directory normally when it is no longer needed.
+Tests cover model splits, timezone/week boundaries, price transitions, peak windows, fork deduplication, route security, Cordis disposal, native Windows/macOS lifecycles, and legacy migration. A real DSH canary plus Playwright checks desktop and 390 px mobile geometry, text overflow, screenshots, and console errors.
 
-Always uninstall this patch and restore the official files before upgrading DSH. Do not reapply an old patch to a new DSH release; wait for a matching project release.
+## Community plugin status
 
-To upgrade from API $$ `v0.2.0`, `v0.3.0`, `v0.4.0-rc.1`, `v0.4.0`, or `v0.4.1`, switch the original project directory to `v0.4.2` and rerun the installer so the verified pristine backup is reused. If the runtime files already match, only the backup-manifest version is promoted. When using a new directory, uninstall from the old one first. See the [install guide](INSTALL.en.md#upgrade-from-an-older-api--release).
+DeepSeek Harness currently publishes no “officially certified plugin” badge or reviewed marketplace. Its README asks community plugins to use the installable bundle format and add the [`dsh-plugin`](https://github.com/topics/dsh-plugin) topic. This project follows that route but is not a DeepSeek product.
 
-## Verification
+`files/`, `patches/`, and the old checksum tools remain only for safe `v0.4.x -> v0.5.x` migration. They are excluded from the native npm/tarball package.
 
-CI and the local verifier:
-
-- Fetch the official `0.1.0-rc.6` packages from npm
-- Verify that both minimal patches apply cleanly
-- Compare the patched official files byte-for-byte with `files/`
-- Exercise per-model usage, price switchover and peak boundaries, Monday weeks, timezones, leap years, cache totals, and fork deduplication
-- Exercise Windows and macOS install, idempotency, uninstall, rollback, tamper guards, and zero-residue teardown
-- Parse Bash, PowerShell, and JavaScript and scan for common secrets and personal paths
-
-```bash
-./scripts/verify-patches.sh
-```
-
-## Documentation
-
-| Document | Purpose |
-| --- | --- |
-| [Full install guide](INSTALL.en.md) | Download, install, restart, verify, uninstall, upgrade, and troubleshooting |
-| [Security](SECURITY.md) | API key and balance data flow, trusted endpoints, and vulnerability reporting |
-| [Changelog](CHANGELOG.md) | Release status and version changes |
-| [Third-party notices](THIRD_PARTY_NOTICES.md) | Origin and license of modified DeepSeek Harness artifacts |
-| [Contributing](CONTRIBUTING.md) | Bug reports, proposed changes, and privacy precautions |
-
-## Project boundary
-
-The installer replaces only two compiled files: the host balance/usage routes and the client sidebar. DSH already provides `sidebar.footer.action` and private Client-to-Host calls. A future release is intended to move to those official extension points and stop replacing compiled core files.
-
-`API $$` is the display brand. The repository, installation directory, and code identifiers remain `dsh-api-balance` because `$` has special meaning in command shells.
+`API $$` is the display brand. The repository, package, and code identifiers remain `dsh-api-balance` because `$` is special in command shells.
 
 ## License
 
-New project code is available under the [MIT License](LICENSE). Modified DeepSeek Harness artifacts retain their original MIT license and copyright; see [Third-party notices](THIRD_PARTY_NOTICES.md).
+New project code is [MIT licensed](LICENSE). Modified DeepSeek Harness artifacts retained for legacy migration are documented in [Third-party notices](THIRD_PARTY_NOTICES.md).
