@@ -30,11 +30,11 @@ This guide covers download, install, restart, verification, uninstall, upgrades,
 Pin the formal release tag so a future `main` update cannot install unreleased code unexpectedly:
 
 ```sh
-git clone --branch v0.4.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.4.1 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-You can also download the source archive from the [`v0.4.0` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0). Open a terminal in the extracted directory containing `install.ps1` and `install.sh`.
+You can also download the source archive from the [`v0.4.1` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1). Open a terminal in the extracted directory containing `install.ps1` and `install.sh`.
 
 ## Windows
 
@@ -88,6 +88,8 @@ This preserves the task's `DSH_HOME`, API key, proxy, permission mode, and hidde
 .\relaunch-dsh-web.ps1
 ```
 
+A successful uninstall verifies and restores both official DSH files, then removes `backup/`, its manifest, and the stored pristine copies. `-WhatIf` does not write or remove anything. The uninstaller does not self-delete the source checkout downloaded by the user; remove that directory normally when it is no longer needed.
+
 Use the `-TaskName` form for the last command when Task Scheduler owns DSH.
 
 ## macOS
@@ -138,6 +140,8 @@ The default service domain is `gui/<current user UID>`. Add `--launchd-domain sy
 ./relaunch-dsh-web.sh
 ```
 
+A successful uninstall verifies and restores both official DSH files, then removes `backup-macos/`, its manifest, and the stored pristine copies. `--dry-run` does not write or remove anything. The uninstaller does not self-delete the source checkout downloaded by the user; remove that directory normally when it is no longer needed.
+
 Use the `--launchd-label` form for the last command when launchd owns DSH.
 
 ## Verify the result
@@ -161,12 +165,12 @@ The safest path is to reuse the original project directory because its `backup/`
 
 ```sh
 git fetch --tags
-git checkout v0.4.0
+git checkout v0.4.1
 ```
 
-Then run `.\install.ps1 -WhatIf` and `.\install.ps1` on Windows, or `./install.sh --dry-run` and `./install.sh` on macOS. From `v0.2.0` or `v0.3.0`, the installer verifies that the targets match the previous patch, replaces both files transactionally, and updates the manifest. From `v0.4.0-rc.1`, identical files only promote the manifest version. Conversation history is not involved.
+Then run `.\install.ps1 -WhatIf` and `.\install.ps1` on Windows, or `./install.sh --dry-run` and `./install.sh` on macOS. From `v0.2.0` or `v0.3.0`, the installer verifies that the targets match the previous patch, replaces both files transactionally, and updates the manifest. From `v0.4.0-rc.1` or `v0.4.0`, identical runtime files only promote the manifest version. Conversation history is not involved.
 
-If you downloaded `v0.4.0` into a new directory, first use the old directory's uninstaller to restore the official files, then install from the new directory. Never copy a backup directory from another machine or DSH version, and do not bypass the official-file guard.
+If you downloaded `v0.4.1` into a new directory, first use the old directory's uninstaller to restore the official files, then install from the new directory. The old source checkout is installation media and can be deleted after the official files are confirmed restored. Never copy a backup directory from another machine or DSH version, and do not bypass the official-file guard.
 
 ## Upgrade DSH
 

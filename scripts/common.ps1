@@ -1,6 +1,6 @@
 Set-StrictMode -Version 2.0
 
-$script:DshApiBalanceVersion = "0.4.0"
+$script:DshApiBalanceVersion = "0.4.1"
 $script:DshApiBalanceSupportedDshVersion = "0.1.0-rc.6"
 $script:DshApiBalanceFiles = @(
     [pscustomobject]@{

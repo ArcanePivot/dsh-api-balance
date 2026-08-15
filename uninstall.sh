@@ -10,7 +10,8 @@ usage() {
   cat <<'EOF'
 Usage: ./uninstall.sh [--dry-run]
 
-Restore the checksummed pristine DSH files saved by install.sh on macOS.
+Restore the checksummed pristine DSH files and remove all installation state
+created by this project on macOS.
 EOF
 }
 
@@ -38,7 +39,7 @@ DSH_API_BALANCE_PROJECT_ROOT="$project_root"
 DSH_API_BALANCE_BACKUP_ROOT="$project_root/backup-macos"
 
 if [ ! -d "$DSH_API_BALANCE_BACKUP_ROOT" ]; then
-  printf 'No backup-macos/ directory found; nothing to restore.\n'
+  printf 'No API $$ installation state found; nothing to remove.\n'
   exit 0
 fi
 
@@ -69,12 +70,19 @@ while [ "$index" -lt "$entry_count" ]; do
 done
 
 if [ "$original_count" -eq "$entry_count" ]; then
-  printf 'The pristine DSH files are already restored; no files changed.\n'
+  if [ "$dry_run" -eq 1 ]; then
+    printf 'Dry run passed. Would remove the remaining API $$ installation state.\n'
+    exit 0
+  fi
+  rm -rf "$DSH_API_BALANCE_BACKUP_ROOT"
+  [ ! -e "$DSH_API_BALANCE_BACKUP_ROOT" ] || \
+    dsh_balance_die "could not remove API $$ installation state: $DSH_API_BALANCE_BACKUP_ROOT"
+  printf 'The pristine DSH files were already restored; removed the remaining installation state.\n'
   exit 0
 fi
 
 if [ "$dry_run" -eq 1 ]; then
-  printf 'Dry run passed. Would restore %s pristine DSH files.\n' "$entry_count"
+  printf 'Dry run passed. Would restore %s pristine DSH files and remove API $$ installation state.\n' "$entry_count"
   exit 0
 fi
 
@@ -114,12 +122,13 @@ while [ "$index" -lt "$entry_count" ]; do
   index=$((index + 1))
 done
 
-node "$DSH_API_BALANCE_MANIFEST_TOOL" mark-uninstalled \
-  "$DSH_API_BALANCE_BACKUP_ROOT/manifest.json"
-
 transaction_active=0
 trap - EXIT HUP INT TERM
 rm -rf "$transaction_root"
 
-printf '\nRestored %s pristine files successfully.\n' "$entry_count"
+rm -rf "$DSH_API_BALANCE_BACKUP_ROOT"
+[ ! -e "$DSH_API_BALANCE_BACKUP_ROOT" ] || \
+  dsh_balance_die "pristine files were restored, but API $$ installation state could not be removed: $DSH_API_BALANCE_BACKUP_ROOT"
+
+printf '\nRestored %s pristine files and removed all project-created installation state.\n' "$entry_count"
 printf 'Restart DSH, then refresh the browser.\n'
