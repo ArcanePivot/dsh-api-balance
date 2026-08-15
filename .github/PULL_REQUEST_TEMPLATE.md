@@ -8,6 +8,7 @@
 - [ ] Chinese and English documentation stay aligned when user-facing behavior changes
 - [ ] No API keys, balances, private URLs, usernames, or personal paths are included
 - [ ] Installation, failure rollback, and uninstall behavior remain reversible
+- [ ] Successful uninstall restores the original DSH tree and removes project-created installation state
 
 ## Compatibility and rollback / 兼容性与回滚
 

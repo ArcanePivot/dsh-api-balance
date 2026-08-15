@@ -45,6 +45,11 @@ if command -v pwsh >/dev/null 2>&1; then
   pwsh -NoProfile -File "$root/scripts/test-powershell-whatif.ps1"
 fi
 "$root/scripts/test-macos-lifecycle.sh" "$tmp/host" "$tmp/sidebar"
+if command -v pwsh >/dev/null 2>&1; then
+  pwsh -NoProfile -File "$root/scripts/test-windows-lifecycle.ps1" \
+    -OfficialHostPackageDir "$tmp/host" \
+    -OfficialSidebarPackageDir "$tmp/sidebar"
+fi
 
 while IFS= read -r -d '' file; do
   node --check "$file"

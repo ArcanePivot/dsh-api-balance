@@ -4,6 +4,19 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-08-15
+
+### Fixed
+
+- 成功卸载在恢复两份官方 DSH 文件后，会删除 `backup/` 或 `backup-macos/`、校验清单和其中的原件副本，不再留下项目创建的安装状态
+- 目标文件已经由其他方式恢复为官方原件时，卸载器仍会清掉剩余安装状态；重复卸载保持幂等
+- 首次安装中途失败时，回滚目标文件后同时删除本次刚创建的备份状态
+
+### Verification
+
+- macOS 生命周期测试新增安装前后 DSH 文件一致性与备份目录零残留断言
+- 新增 PowerShell 生命周期测试，覆盖预检、安装、正常卸载、已恢复原件、重复卸载和篡改拦截；CI 在 `pwsh` 环境执行，并另经 Windows 10 / PowerShell 5.1 实机验证
+
 ## [0.4.0] - 2026-08-15
 
 ### Added
@@ -75,7 +88,8 @@
 - Windows 10 / 11
 - macOS，Bash 3.2 或更新版本
 
-[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0

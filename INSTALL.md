@@ -30,11 +30,11 @@
 推荐固定到正式发布标签，避免以后 `main` 更新时意外安装尚未发布的代码：
 
 ```sh
-git clone --branch v0.4.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.4.1 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-也可以从 [`v0.4.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0) 下载源码包。解压后，在包含 `install.ps1` 和 `install.sh` 的目录打开终端。
+也可以从 [`v0.4.1` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1) 下载源码包。解压后，在包含 `install.ps1` 和 `install.sh` 的目录打开终端。
 
 ## Windows
 
@@ -88,6 +88,8 @@ Get-ChildItem -Recurse -File | Unblock-File
 .\relaunch-dsh-web.ps1
 ```
 
+成功卸载会校验并恢复两份官方 DSH 文件，然后删除 `backup/`、清单和原件副本。`-WhatIf` 不会写入或删除任何内容。卸载脚本不会删除用户自行下载的源码目录；确认不再需要后可正常删除该目录。
+
 若由计划任务管理，最后一条改为带 `-TaskName` 的命令。
 
 ## macOS
@@ -138,6 +140,8 @@ launchd 托管的 DSH 应重启原服务：
 ./relaunch-dsh-web.sh
 ```
 
+成功卸载会校验并恢复两份官方 DSH 文件，然后删除 `backup-macos/`、清单和原件副本。`--dry-run` 不会写入或删除任何内容。卸载脚本不会删除用户自行下载的源码目录；确认不再需要后可正常删除该目录。
+
 若由 launchd 管理，最后一条改为带 `--launchd-label` 的命令。
 
 ## 验收
@@ -161,12 +165,12 @@ launchd 托管的 DSH 应重启原服务：
 
 ```sh
 git fetch --tags
-git checkout v0.4.0
+git checkout v0.4.1
 ```
 
-然后在 Windows 运行 `.\install.ps1 -WhatIf`、`.\install.ps1`，或在 macOS 运行 `./install.sh --dry-run`、`./install.sh`。从 `v0.2.0` 或 `v0.3.0` 升级时，安装器会确认当前文件确实属于旧版补丁，再整体替换并更新备份清单；从 `v0.4.0-rc.1` 升级且文件已经相同时，只提升清单版本。对话记录不会参与这个过程。
+然后在 Windows 运行 `.\install.ps1 -WhatIf`、`.\install.ps1`，或在 macOS 运行 `./install.sh --dry-run`、`./install.sh`。从 `v0.2.0` 或 `v0.3.0` 升级时，安装器会确认当前文件确实属于旧版补丁，再整体替换并更新备份清单；从 `v0.4.0-rc.1` 或 `v0.4.0` 升级且运行文件已经相同时，只提升清单版本。对话记录不会参与这个过程。
 
-如果你下载到了一个全新的 `v0.4.0` 目录，先回到旧版目录运行旧卸载器恢复官方文件，再用新目录安装。不要手工复制其他机器或其他 DSH 版本的备份目录，也不要绕过“目标文件不是官方原件”的保护。
+如果你下载到了一个全新的 `v0.4.1` 目录，先回到旧版目录运行卸载器恢复官方文件，再用新目录安装。旧版源码目录属于安装介质，可在确认官方文件已经恢复后删除。不要手工复制其他机器或其他 DSH 版本的备份目录，也不要绕过“目标文件不是官方原件”的保护。
 
 ## 升级 DSH
 

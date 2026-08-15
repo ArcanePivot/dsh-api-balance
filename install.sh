@@ -59,6 +59,7 @@ done
 entry_count="${#DSH_API_BALANCE_PACKAGES[@]}"
 backup_exists=0
 [ -d "$DSH_API_BALANCE_BACKUP_ROOT" ] && backup_exists=1
+backup_created=0
 
 if [ "$matching_targets" -eq "$entry_count" ]; then
   if [ "$backup_exists" -ne 1 ]; then
@@ -159,6 +160,7 @@ if [ "$backup_exists" -ne 1 ]; then
     dsh_balance_die "could not create the pristine backup manifest"
   fi
   mv "$staging_root" "$DSH_API_BALANCE_BACKUP_ROOT"
+  backup_created=1
   staging_active=0
   trap - EXIT HUP INT TERM
   printf 'Created checksummed pristine backup: %s\n' "$DSH_API_BALANCE_BACKUP_ROOT"
@@ -180,6 +182,9 @@ cleanup_transaction() {
   if [ "$transaction_active" -eq 1 ]; then
     printf 'Installation failed. Restoring the pre-install files.\n' >&2
     dsh_balance_restore_transaction "$transaction_root"
+    if [ "$backup_created" -eq 1 ]; then
+      rm -rf "$DSH_API_BALANCE_BACKUP_ROOT"
+    fi
   fi
   rm -rf "$transaction_root"
   return "$status"

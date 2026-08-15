@@ -1,5 +1,6 @@
 <#
-Restores the pristine DSH files saved by install.ps1.
+Restores the pristine DSH files saved by install.ps1 and removes all
+installation state created by this project.
 
 The uninstaller verifies the backup manifest and checksums before changing
 anything. If a restore fails, it puts the pre-uninstall files back.
@@ -19,7 +20,7 @@ $backupRoot = Join-Path $projectRoot "backup"
 . (Join-Path $projectRoot "scripts\common.ps1")
 
 if (-not (Test-Path -LiteralPath $backupRoot -PathType Container)) {
-    Write-Host "No backup directory found; nothing to restore."
+    Write-Host 'No API $$ installation state found; nothing to remove.'
     exit 0
 }
 
@@ -46,11 +47,18 @@ foreach ($entry in $entries) {
 }
 
 if ($alreadyPristine.Count -eq $entries.Count) {
-    Write-Host "The pristine DSH files are already restored; no files changed."
+    if (-not $PSCmdlet.ShouldProcess($backupRoot, 'Remove API $$ installation state')) {
+        return
+    }
+    Remove-Item -LiteralPath $backupRoot -Recurse -Force
+    if (Test-Path -LiteralPath $backupRoot) {
+        throw ('Could not remove API $$ installation state: {0}' -f $backupRoot)
+    }
+    Write-Host "The pristine DSH files were already restored; removed the remaining installation state."
     exit 0
 }
 
-if (-not $PSCmdlet.ShouldProcess($install.DshRoot, "Restore the pristine DSH files")) {
+if (-not $PSCmdlet.ShouldProcess($install.DshRoot, 'Restore the pristine DSH files and remove API $$ installation state')) {
     return
 }
 
@@ -66,8 +74,6 @@ try {
         Write-Host "  restored: $($entry.RelativePath)"
     }
 
-    $manifest.lastUninstalledAtUtc = [DateTime]::UtcNow.ToString("o")
-    Write-DshApiBalanceJson -Path (Join-Path $backupRoot "manifest.json") -Value $manifest
 } catch {
     Write-Warning "Restore failed. Putting the pre-uninstall files back."
     Restore-DshApiBalanceTransaction -Entries $entries -TransactionRoot $transactionRoot
@@ -76,6 +82,11 @@ try {
     Remove-Item -LiteralPath $transactionRoot -Recurse -Force -ErrorAction SilentlyContinue
 }
 
+Remove-Item -LiteralPath $backupRoot -Recurse -Force
+if (Test-Path -LiteralPath $backupRoot) {
+    throw ('Pristine files were restored, but API $$ installation state could not be removed: {0}' -f $backupRoot)
+}
+
 Write-Host ""
-Write-Host "Restored $($entries.Count) pristine files successfully."
+Write-Host "Restored $($entries.Count) pristine files and removed all project-created installation state."
 Write-Host "Restart dsh web, then refresh the browser."

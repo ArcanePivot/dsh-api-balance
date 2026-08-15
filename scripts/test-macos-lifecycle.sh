@@ -68,7 +68,7 @@ run_project "$project/install.sh" --dry-run >/dev/null
 node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(value.patchVersion!=="0.4.0-rc.1") process.exit(1)' \
   "$project/backup-macos/manifest.json"
 run_project "$project/install.sh" >/dev/null
-node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(value.patchVersion!=="0.4.0") process.exit(1)' \
+node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(value.patchVersion!=="0.4.1") process.exit(1)' \
   "$project/backup-macos/manifest.json"
 
 old_root="$tmp/simulated-v0.2"
@@ -92,14 +92,17 @@ cmp "$sidebar_target" "$old_sidebar"
 run_project "$project/install.sh" >/dev/null
 cmp "$host_target" "$project/files/dsh-host-apiproxy/lib/index.js"
 cmp "$sidebar_target" "$project/files/dsh-client-ui-sidebar/lib/client.js"
-node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(value.patchVersion!=="0.4.0") process.exit(1)' \
+node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(value.patchVersion!=="0.4.1") process.exit(1)' \
   "$project/backup-macos/manifest.json"
 
 run_project "$project/uninstall.sh" --dry-run >/dev/null
+[ -d "$project/backup-macos" ]
 run_project "$project/uninstall.sh" >/dev/null
 cmp "$host_target" "$official_host/lib/index.js"
 cmp "$sidebar_target" "$official_sidebar/lib/client.js"
+[ ! -e "$project/backup-macos" ]
 run_project "$project/uninstall.sh" >/dev/null
+[ ! -e "$project/backup-macos" ]
 
 run_project "$project/install.sh" >/dev/null
 printf '\nintentional-test-tamper\n' >>"$sidebar_target"
@@ -108,8 +111,10 @@ if run_project "$project/uninstall.sh" >"$tmp/tamper.log" 2>&1; then
   exit 1
 fi
 grep -q 'refusing to overwrite an unrecognized file' "$tmp/tamper.log"
+[ -d "$project/backup-macos" ]
 cp "$project/files/dsh-client-ui-sidebar/lib/client.js" "$sidebar_target"
 run_project "$project/uninstall.sh" >/dev/null
+[ ! -e "$project/backup-macos" ]
 
 sidebar_directory="$(dirname "$sidebar_target")"
 chmod 555 "$sidebar_directory"
@@ -122,8 +127,8 @@ chmod 755 "$sidebar_directory"
 grep -q 'Installation failed. Restoring the pre-install files.' "$tmp/rollback.log"
 cmp "$host_target" "$official_host/lib/index.js"
 cmp "$sidebar_target" "$official_sidebar/lib/client.js"
+[ ! -e "$project/backup-macos" ]
 
-rm -rf "$project/backup-macos"
 cp "$project/files/dsh-host-apiproxy/lib/index.js" "$host_target"
 if run_project "$project/install.sh" >"$tmp/partial.log" 2>&1; then
   printf 'Expected install.sh to reject a partial install without a backup.\n' >&2

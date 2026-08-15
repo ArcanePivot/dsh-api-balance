@@ -61,6 +61,7 @@ if (-not $backupExists -and $matchingTargets.Count -gt 0) {
 }
 
 $manifest = $null
+$createdBackup = $false
 if ($backupExists) {
     $manifest = Get-DshApiBalanceManifest $backupRoot
     Assert-DshApiBalanceManifest -Manifest $manifest -Install $install -Entries $entries
@@ -105,6 +106,7 @@ if ($backupExists) {
         }
         Write-DshApiBalanceJson -Path (Join-Path $stagingRoot "manifest.json") -Value $manifest
         Move-Item -LiteralPath $stagingRoot -Destination $backupRoot
+        $createdBackup = $true
         Write-Host "Created checksummed pristine backup: $backupRoot"
     } finally {
         if (Test-Path -LiteralPath $stagingRoot) {
@@ -135,9 +137,16 @@ try {
     }
     Write-DshApiBalanceJson -Path (Join-Path $backupRoot "manifest.json") -Value $manifest
 } catch {
+    $installError = $_
     Write-Warning "Installation failed. Restoring the pre-install files."
-    Restore-DshApiBalanceTransaction -Entries $entries -TransactionRoot $transactionRoot
-    throw
+    try {
+        Restore-DshApiBalanceTransaction -Entries $entries -TransactionRoot $transactionRoot
+    } finally {
+        if ($createdBackup -and (Test-Path -LiteralPath $backupRoot)) {
+            Remove-Item -LiteralPath $backupRoot -Recurse -Force
+        }
+    }
+    throw $installError
 } finally {
     Remove-Item -LiteralPath $transactionRoot -Recurse -Force -ErrorAction SilentlyContinue
 }

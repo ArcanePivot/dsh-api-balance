@@ -7,7 +7,7 @@
 <p align="center">
   <strong>简体中文</strong> ·
   <a href="README.en.md">English</a> ·
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0">v0.4.0</a> ·
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1">v0.4.1</a> ·
   <a href="#快速安装">快速安装</a> ·
   <a href="INSTALL.md">完整安装手册</a> ·
   <a href="SECURITY.md">安全说明</a> ·
@@ -16,14 +16,14 @@
 
 <p align="center">
   <a href="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml"><img src="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml/badge.svg" alt="Verify patches"></a>
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-16a34a?style=flat-square" alt="v0.4.0 release"></a>
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1"><img src="https://img.shields.io/badge/release-v0.4.1-16a34a?style=flat-square" alt="v0.4.1 release"></a>
   <img src="https://img.shields.io/badge/DSH-0.1.0--rc.6%20only-111827?style=flat-square" alt="DSH 0.1.0-rc.6 only">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2563eb?style=flat-square" alt="Windows and macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
 </p>
 
 > [!IMPORTANT]
-> `v0.4.0` 仅支持 **`@deepseek-ai/dsh@0.1.0-rc.6`**。这是非官方、版本锁定的补丁包，不是原生 Cordis 插件；安装器遇到其他 DSH 版本或已被修改的目标文件会拒绝执行。
+> `v0.4.1` 仅支持 **`@deepseek-ai/dsh@0.1.0-rc.6`**。这是非官方、版本锁定的补丁包，不是原生 Cordis 插件；安装器遇到其他 DSH 版本或已被修改的目标文件会拒绝执行。
 
 ## 实际效果
 
@@ -46,7 +46,7 @@
 
 | 余额与用量同屏 | Key 留在宿主端 | 随时可以还原 |
 | --- | --- | --- |
-| 侧边栏常驻当前余额，点击查看余额明细、本机 Token 用量和每日趋势。 | 浏览器只请求同源 DSH 接口，API Key 不进入网页请求，也不会返回前端。 | 首次安装保存带 SHA-256 的官方原件；安装、卸载失败都会回滚。 |
+| 侧边栏常驻当前余额，点击查看余额明细、本机 Token 用量和每日趋势。 | 浏览器只请求同源 DSH 接口，API Key 不进入网页请求，也不会返回前端。 | 首次安装保存带 SHA-256 的官方原件；成功卸载恢复原件并删除全部安装状态。 |
 
 - 中文显示 `API 余额`，英文显示 `API Balance`
 - 余额低于 `20 CNY` 时显示警示色
@@ -75,11 +75,11 @@ npm install -g @deepseek-ai/dsh@0.1.0-rc.6
 ### 2. 获取项目
 
 ```sh
-git clone --branch v0.4.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.4.1 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-也可以从 [`v0.4.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0) 下载源码包并在解压目录中执行下列命令。固定版本可以避免以后 `main` 更新时意外安装尚未发布的代码。
+也可以从 [`v0.4.1` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1) 下载源码包并在解压目录中执行下列命令。固定版本可以避免以后 `main` 更新时意外安装尚未发布的代码。
 
 ### 3A. Windows
 
@@ -143,7 +143,7 @@ POST /api/llm.usage    ----------->  读取本机保留的 DSH 会话日志
 | Windows 实机验收 | Windows 10、Node 24、DSH `0.1.0-rc.6` |
 | macOS 生命周期验收 | macOS Bash 3.2、Node 22、隔离的官方 rc.6 npm 文件副本 |
 
-> macOS 安装器已在隔离环境跑完安装、重复安装、卸载、重复卸载和篡改拦截。真实机器仍应先运行 `--dry-run`；Windows 对应使用 `-WhatIf`。
+> Windows 与 macOS 安装器均在隔离环境跑完预检、安装、卸载、重复卸载、篡改拦截和零残留校验。真实机器仍应先运行 `-WhatIf` 或 `--dry-run`。
 
 ## 卸载与升级
 
@@ -161,9 +161,11 @@ macOS：
 ./uninstall.sh
 ```
 
+成功卸载会把两份 DSH 文件恢复到安装前的 SHA-256，并删除项目创建的 `backup/` 或 `backup-macos/` 及校验清单。随后必须重启原 DSH 进程，才能清除内存中已加载的旧代码。源码目录是用户自行下载的安装介质，脚本不会冒险自删；确认不再需要后可正常删除整个源码目录。
+
 升级 DSH 前必须先卸载本补丁、恢复官方文件。不要把旧补丁重新套到新版本 DSH 上；等待本项目发布匹配的新版本。
 
-从 API $$ `v0.2.0`、`v0.3.0` 或 `v0.4.0-rc.1` 升级时，推荐在原安装目录切换到 `v0.4.0` 后重跑安装器，这样能复用经过校验的官方备份；候选版文件已相同时只会提升备份清单版本。使用全新目录时应先用旧目录卸载。完整步骤见[安装手册](INSTALL.md#从旧版-api--升级)。
+从 API $$ `v0.2.0`、`v0.3.0`、`v0.4.0-rc.1` 或 `v0.4.0` 升级时，推荐在原安装目录切换到 `v0.4.1` 后重跑安装器，这样能复用经过校验的官方备份；运行文件已相同时只会提升备份清单版本。使用全新目录时应先用旧目录卸载。完整步骤见[安装手册](INSTALL.md#从旧版-api--升级)。
 
 ## 验证
 
@@ -173,7 +175,7 @@ macOS：
 - 验证两个最小补丁可以干净应用
 - 验证“官方文件 + 补丁”与 `files/` 中完整文件逐字节一致
 - 运行跨会话用量与费用测试：模型拆分、涨价生效点、峰谷边界、周一周界、时区、闰年、缓存和分叉去重
-- 跑完 macOS 安装、幂等、卸载、回滚和篡改拦截测试
+- 跑完 Windows 与 macOS 安装、幂等、卸载、回滚、篡改拦截和零残留测试
 - 检查 Bash、PowerShell、JavaScript 语法及常见密钥和个人路径
 
 ```bash

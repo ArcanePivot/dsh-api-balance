@@ -7,7 +7,7 @@
 <p align="center">
   <a href="README.md">简体中文</a> ·
   <strong>English</strong> ·
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0">v0.4.0</a> ·
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1">v0.4.1</a> ·
   <a href="#quick-install">Quick install</a> ·
   <a href="INSTALL.en.md">Full install guide</a> ·
   <a href="SECURITY.md">Security</a> ·
@@ -16,14 +16,14 @@
 
 <p align="center">
   <a href="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml"><img src="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml/badge.svg" alt="Verify patches"></a>
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-16a34a?style=flat-square" alt="v0.4.0 release"></a>
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1"><img src="https://img.shields.io/badge/release-v0.4.1-16a34a?style=flat-square" alt="v0.4.1 release"></a>
   <img src="https://img.shields.io/badge/DSH-0.1.0--rc.6%20only-111827?style=flat-square" alt="DSH 0.1.0-rc.6 only">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2563eb?style=flat-square" alt="Windows and macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
 </p>
 
 > [!IMPORTANT]
-> `v0.4.0` supports **`@deepseek-ai/dsh@0.1.0-rc.6` only**. This is an unofficial, version-locked patch package, not a native Cordis plugin. The installers refuse any other DSH version or unrecognized target file.
+> `v0.4.1` supports **`@deepseek-ai/dsh@0.1.0-rc.6` only**. This is an unofficial, version-locked patch package, not a native Cordis plugin. The installers refuse any other DSH version or unrecognized target file.
 
 ## See it work
 
@@ -46,7 +46,7 @@ The screenshots reproduce the DSH Web UI validated on a live installation. Balan
 
 | Balance and usage together | Host-only API key | Reversible install |
 | --- | --- | --- |
-| The sidebar keeps the current balance visible; click it for balance details, local Token usage, and daily trends. | The browser calls same-origin DSH routes. The API key never enters the browser request and is never returned to the client. | The first install stores checksummed official files. Failed installs and uninstalls roll back. |
+| The sidebar keeps the current balance visible; click it for balance details, local Token usage, and daily trends. | The browser calls same-origin DSH routes. The API key never enters the browser request and is never returned to the client. | The first install stores checksummed official files. A successful uninstall restores them and removes all installation state. |
 
 - `API 余额` in Simplified Chinese and `API Balance` in English
 - Warning color below `20 CNY`
@@ -75,11 +75,11 @@ After starting DSH, save the API key in the DeepSeek card under `Settings -> Mod
 ### 2. Get the project
 
 ```sh
-git clone --branch v0.4.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.4.1 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-You can also download the source archive from the [`v0.4.0` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0) and run the following commands from the extracted directory. Pinning the version avoids installing unreleased changes from a future `main` branch.
+You can also download the source archive from the [`v0.4.1` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1) and run the following commands from the extracted directory. Pinning the version avoids installing unreleased changes from a future `main` branch.
 
 ### 3A. Windows
 
@@ -143,7 +143,7 @@ Balance and usage totals are account information. Anyone who can access the DSH 
 | Live Windows verification | Windows 10, Node 24, DSH `0.1.0-rc.6` |
 | macOS lifecycle verification | macOS Bash 3.2, Node 22, isolated official rc.6 npm files |
 
-> The macOS installer has passed install, idempotent reinstall, uninstall, idempotent re-uninstall, and tamper-rejection tests in an isolated fixture. Run `--dry-run` before a live install; use `-WhatIf` on Windows.
+> Both Windows and macOS installers pass isolated preflight, install, uninstall, repeated-uninstall, tamper-rejection, and zero-residue lifecycle tests. Run `-WhatIf` or `--dry-run` before a live change.
 
 ## Uninstall and upgrade
 
@@ -161,9 +161,11 @@ macOS:
 ./uninstall.sh
 ```
 
+Successful uninstall restores both DSH files to their pre-install SHA-256 values and removes the project-created `backup/` or `backup-macos/` directory and manifest. Restart the original DSH process afterward to unload the old in-memory code. The source checkout is user-downloaded installation media and is not self-deleted; remove that directory normally when it is no longer needed.
+
 Always uninstall this patch and restore the official files before upgrading DSH. Do not reapply an old patch to a new DSH release; wait for a matching project release.
 
-To upgrade from API $$ `v0.2.0`, `v0.3.0`, or `v0.4.0-rc.1`, switch the original project directory to `v0.4.0` and rerun the installer so the verified pristine backup is reused. If the candidate files already match, only the backup-manifest version is promoted. When using a new directory, uninstall from the old one first. See the [install guide](INSTALL.en.md#upgrade-from-an-older-api--release).
+To upgrade from API $$ `v0.2.0`, `v0.3.0`, `v0.4.0-rc.1`, or `v0.4.0`, switch the original project directory to `v0.4.1` and rerun the installer so the verified pristine backup is reused. If the runtime files already match, only the backup-manifest version is promoted. When using a new directory, uninstall from the old one first. See the [install guide](INSTALL.en.md#upgrade-from-an-older-api--release).
 
 ## Verification
 
@@ -173,7 +175,7 @@ CI and the local verifier:
 - Verify that both minimal patches apply cleanly
 - Compare the patched official files byte-for-byte with `files/`
 - Exercise per-model usage, price switchover and peak boundaries, Monday weeks, timezones, leap years, cache totals, and fork deduplication
-- Exercise macOS install, idempotency, uninstall, rollback, and tamper guards
+- Exercise Windows and macOS install, idempotency, uninstall, rollback, tamper guards, and zero-residue teardown
 - Parse Bash, PowerShell, and JavaScript and scan for common secrets and personal paths
 
 ```bash
