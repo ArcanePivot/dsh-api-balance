@@ -1067,10 +1067,12 @@ window.__ModuleLoader__.load({
 									}
 								}), (0, react_jsx_runtime.jsx)("span", {
 									style: {
+										width: 12,
 										height: 18,
 										paddingTop: 4,
 										fontSize: 9,
 										lineHeight: "14px",
+										textAlign: "center",
 										color: isToday ? "var(--dsw-static-blue-450)" : "var(--dsw-alias-label-secondary)",
 										fontWeight: isToday ? 650 : 400
 									},

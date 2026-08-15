@@ -35,7 +35,7 @@ index 629e313..8e7e7ca 100644
  							className: SidebarRoot_module_css_default.footerActions,
  							children: renderSlot("sidebar.footer.action", { wide })
  						}), (0, react_jsx_runtime.jsx)("div", {
-@@ -217,6 +221,1020 @@ window.__ModuleLoader__.load({
+@@ -217,6 +221,1022 @@ window.__ModuleLoader__.load({
  				]
  			});
  		}
@@ -885,10 +885,12 @@ index 629e313..8e7e7ca 100644
 +									}
 +								}), (0, react_jsx_runtime.jsx)("span", {
 +									style: {
++										width: 12,
 +										height: 18,
 +										paddingTop: 4,
 +										fontSize: 9,
 +										lineHeight: "14px",
++										textAlign: "center",
 +										color: isToday ? "var(--dsw-static-blue-450)" : "var(--dsw-alias-label-secondary)",
 +										fontWeight: isToday ? 650 : 400
 +									},
