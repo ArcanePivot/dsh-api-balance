@@ -4,12 +4,13 @@
 
 ## Verification / 验证
 
-- [ ] `./scripts/verify-patches.sh` passes
+- [ ] `pnpm run verify` passes
+- [ ] Native install, repeated install, uninstall, and repeated uninstall remain clean
 - [ ] Chinese and English documentation stay aligned when user-facing behavior changes
 - [ ] No API keys, balances, private URLs, usernames, or personal paths are included
 - [ ] Installation, failure rollback, and uninstall behavior remain reversible
-- [ ] Successful uninstall restores the original DSH tree and removes project-created installation state
+- [ ] UI changes were checked on desktop and 390 px mobile without overflow
 
 ## Compatibility and rollback / 兼容性与回滚
 
-<!-- State the tested DSH version, affected platforms, risks, and rollback method. -->
+<!-- State the tested DSH version, affected platforms, service/slot risks, and removal method. -->

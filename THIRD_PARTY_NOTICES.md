@@ -1,13 +1,15 @@
 # Third-party notices
 
-This repository includes modified compiled files from the following project:
+The native API $$ implementation imports public services and client modules from DeepSeek Harness through package peer dependencies. Those packages retain their own licenses and copyrights.
+
+This repository also keeps two modified compiled files from the legacy `v0.4.x` release solely for checksum-based migration and recovery tests. They are excluded from the `v0.5.x` native package tarball.
 
 ## DeepSeek Harness
 
 - Project: DeepSeek Harness
 - Source: https://github.com/deepseek-ai/deepseek-harness
-- Packages: `@deepseek-ai/dsh-host-apiproxy`, `@deepseek-ai/dsh-client-ui-sidebar`
-- Version: `0.1.0-rc.6`
+- Legacy artifact packages: `@deepseek-ai/dsh-host-apiproxy`, `@deepseek-ai/dsh-client-ui-sidebar`
+- Legacy artifact version: `0.1.0-rc.6`
 - License: MIT
 
 ```text

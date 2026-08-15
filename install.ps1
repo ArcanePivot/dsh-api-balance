@@ -1,159 +1,79 @@
 <#
-Installs dsh-api-balance into a supported global DSH installation.
+Install API $$ as a native DSH bundle.
 
-The installer validates every source and target before changing anything,
-stores checksummed pristine backups, and rolls back the whole operation if a
-copy or verification fails.
-
-Usage:
+Examples:
     .\install.ps1
-    .\install.ps1 -WhatIf
+    .\install.ps1 -PackageSpec .\arcanepivot-dsh-api-balance.tgz
+    .\install.ps1 -Profile web -WhatIf
 #>
 [CmdletBinding(SupportsShouldProcess = $true)]
-param()
+param(
+    [string]$Profile = "web",
+    [string]$PackageSpec = ""
+)
 
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version 2.0
 
+$packageName = "@arcanepivot/dsh-api-balance"
 $projectRoot = $PSScriptRoot
-$backupRoot = Join-Path $projectRoot "backup"
-. (Join-Path $projectRoot "scripts\common.ps1")
 
-$install = Get-DshApiBalanceInstall
-Assert-DshApiBalanceSupportedInstall $install
-$entries = Get-DshApiBalanceEntries -Install $install -ProjectRoot $projectRoot -BackupRoot $backupRoot
-Assert-DshApiBalanceFilesExist $entries
-
-Write-Host "DSH: $($install.DshRoot)"
-Write-Host "Version: $($install.DshVersion) (supported)"
-
-$matchingTargets = @($entries | Where-Object {
-    (Get-DshApiBalanceSha256 $_.Source) -eq (Get-DshApiBalanceSha256 $_.Target)
-})
-$backupExists = Test-Path -LiteralPath $backupRoot -PathType Container
-
-if ($matchingTargets.Count -eq $entries.Count) {
-    if (-not $backupExists) {
-        throw "The patched files are already installed, but no pristine backup exists. Reinstall DSH $script:DshApiBalanceSupportedDshVersion cleanly before using this installer."
-    }
-    $manifest = Get-DshApiBalanceManifest $backupRoot
-    Assert-DshApiBalanceManifest -Manifest $manifest -Install $install -Entries $entries
-    if ([string]$manifest.patchVersion -ne $script:DshApiBalanceVersion) {
-        if (-not $PSCmdlet.ShouldProcess($backupRoot, "Promote dsh-api-balance metadata to $script:DshApiBalanceVersion")) {
-            return
-        }
-        $manifest.patchVersion = $script:DshApiBalanceVersion
-        $manifest.lastInstalledAtUtc = [DateTime]::UtcNow.ToString("o")
-        foreach ($entry in $entries) {
-            $record = $manifest.files | Where-Object { $_.path -eq $entry.RelativePath } | Select-Object -First 1
-            $record.patchedSha256 = Get-DshApiBalanceSha256 $entry.Source
-        }
-        Write-DshApiBalanceJson -Path (Join-Path $backupRoot "manifest.json") -Value $manifest
-        Write-Host "The installed files already match; promoted backup metadata to $script:DshApiBalanceVersion."
-        exit 0
-    }
-    Write-Host "dsh-api-balance is already installed; no files changed."
-    exit 0
+if ($null -eq (Get-Command dsh -ErrorAction SilentlyContinue)) {
+    throw "Required command not found: dsh"
+}
+if ($null -eq (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+    throw "Required command not found: pnpm"
 }
 
-if (-not $backupExists -and $matchingTargets.Count -gt 0) {
-    throw "Detected a partial or manually patched installation without a pristine backup. Reinstall DSH $script:DshApiBalanceSupportedDshVersion cleanly, then run this installer."
-}
-
-$manifest = $null
-$createdBackup = $false
-if ($backupExists) {
-    $manifest = Get-DshApiBalanceManifest $backupRoot
-    Assert-DshApiBalanceManifest -Manifest $manifest -Install $install -Entries $entries
-    foreach ($entry in $entries) {
-        if ((Get-DshApiBalanceTargetState -Entry $entry -Manifest $manifest) -eq "unknown") {
-            throw "Refusing to overwrite an unrecognized file: $($entry.RelativePath)"
-        }
+if ([string]::IsNullOrWhiteSpace($PackageSpec)) {
+    $candidates = @(Get-ChildItem -LiteralPath $projectRoot -Filter "arcanepivot-dsh-api-balance-*.tgz" -File)
+    if ($candidates.Count -ne 1) {
+        throw "Pass -PackageSpec <release.tgz>, or place exactly one arcanepivot-dsh-api-balance-*.tgz beside install.ps1."
     }
-} else {
-    Assert-DshApiBalanceOfficialTargets $entries
+    $PackageSpec = $candidates[0].FullName
 }
 
-if (-not $PSCmdlet.ShouldProcess($install.DshRoot, "Back up and install dsh-api-balance $script:DshApiBalanceVersion")) {
+$legacyRoots = @(
+    (Join-Path $projectRoot "backup"),
+    (Join-Path $projectRoot "backup-macos")
+)
+$legacyRoot = $legacyRoots | Where-Object { Test-Path -LiteralPath $_ -PathType Container } | Select-Object -First 1
+if ($null -ne $legacyRoot) {
+    if ($PSCmdlet.ShouldProcess($legacyRoot, "Restore the v0.4.x core-file patch before native installation")) {
+        & (Join-Path $projectRoot "uninstall.ps1") -Profile $Profile -LegacyOnly
+    } else {
+        Write-Host "Legacy v0.4.x state found at $legacyRoot; pristine DSH files would be restored first."
+        return
+    }
+}
+
+if (-not $PSCmdlet.ShouldProcess("DSH profile $Profile", "Install native bundle $PackageSpec")) {
     return
 }
 
-if ($backupExists) {
-    # The manifest was validated during preflight so -WhatIf catches problems too.
-} else {
-    $stagingRoot = "$backupRoot.staging-$PID"
-    try {
-        New-Item -ItemType Directory -Force -Path $stagingRoot | Out-Null
-        $records = @()
-        foreach ($entry in $entries) {
-            $backupPath = Join-Path $stagingRoot (ConvertTo-NativeRelativePath $entry.RelativePath)
-            New-Item -ItemType Directory -Force -Path (Split-Path $backupPath -Parent) | Out-Null
-            Copy-Item -LiteralPath $entry.Target -Destination $backupPath -Force
-            $records += [pscustomobject]@{
-                path = $entry.RelativePath
-                originalSha256 = Get-DshApiBalanceSha256 $backupPath
-                patchedSha256 = Get-DshApiBalanceSha256 $entry.Source
-            }
-        }
-        $manifest = [ordered]@{
-            schemaVersion = 1
-            patchVersion = $script:DshApiBalanceVersion
-            dshVersion = $install.DshVersion
-            createdAtUtc = [DateTime]::UtcNow.ToString("o")
-            lastInstalledAtUtc = $null
-            lastUninstalledAtUtc = $null
-            files = $records
-        }
-        Write-DshApiBalanceJson -Path (Join-Path $stagingRoot "manifest.json") -Value $manifest
-        Move-Item -LiteralPath $stagingRoot -Destination $backupRoot
-        $createdBackup = $true
-        Write-Host "Created checksummed pristine backup: $backupRoot"
-    } finally {
-        if (Test-Path -LiteralPath $stagingRoot) {
-            Remove-Item -LiteralPath $stagingRoot -Recurse -Force
-        }
-    }
-    $entries = Get-DshApiBalanceEntries -Install $install -ProjectRoot $projectRoot -BackupRoot $backupRoot
+Write-Host "Installing native bundle $PackageSpec into profile $Profile..."
+& dsh plugin --profile $Profile add $PackageSpec
+if ($LASTEXITCODE -ne 0) { throw "dsh plugin add failed with exit code $LASTEXITCODE." }
+
+$dshHome = if ([string]::IsNullOrWhiteSpace($env:DSH_HOME)) { Join-Path $HOME ".dsh" } else { $env:DSH_HOME }
+$profileManifest = Join-Path (Join-Path (Join-Path $dshHome "profiles") $Profile) "package.json"
+if (-not (Test-Path -LiteralPath $profileManifest -PathType Leaf)) {
+    throw "DSH profile manifest was not created: $profileManifest"
+}
+$manifest = Get-Content -LiteralPath $profileManifest -Raw | ConvertFrom-Json
+$dependency = $manifest.dependencies.PSObject.Properties[$packageName]
+$bundles = @($manifest.dsh.profile.bundles)
+if ($null -eq $dependency -or $bundles -notcontains $packageName) {
+    throw "Native bundle was not added to the DSH profile manifest."
 }
 
-$transactionRoot = New-DshApiBalanceTransactionBackup $entries
-try {
-    foreach ($entry in $entries) {
-        Copy-Item -LiteralPath $entry.Source -Destination $entry.Target -Force
-        $expected = Get-DshApiBalanceSha256 $entry.Source
-        $actual = Get-DshApiBalanceSha256 $entry.Target
-        if ($actual -ne $expected) {
-            throw "Post-install checksum mismatch: $($entry.RelativePath)"
-        }
-        Write-Host "  installed: $($entry.RelativePath)"
-    }
-
-    $manifest = Get-DshApiBalanceManifest $backupRoot
-    $manifest.patchVersion = $script:DshApiBalanceVersion
-    $manifest.lastInstalledAtUtc = [DateTime]::UtcNow.ToString("o")
-    foreach ($entry in $entries) {
-        $record = $manifest.files | Where-Object { $_.path -eq $entry.RelativePath } | Select-Object -First 1
-        $record.patchedSha256 = Get-DshApiBalanceSha256 $entry.Source
-    }
-    Write-DshApiBalanceJson -Path (Join-Path $backupRoot "manifest.json") -Value $manifest
-} catch {
-    $installError = $_
-    Write-Warning "Installation failed. Restoring the pre-install files."
-    try {
-        Restore-DshApiBalanceTransaction -Entries $entries -TransactionRoot $transactionRoot
-    } finally {
-        if ($createdBackup -and (Test-Path -LiteralPath $backupRoot)) {
-            Remove-Item -LiteralPath $backupRoot -Recurse -Force
-        }
-    }
-    throw $installError
-} finally {
-    Remove-Item -LiteralPath $transactionRoot -Recurse -Force -ErrorAction SilentlyContinue
+$config = (& dsh --profile $Profile --dump-config | Out-String)
+if ($LASTEXITCODE -ne 0 -or $config -notmatch [regex]::Escape("name: '$packageName'")) {
+    throw "Native plugin row is missing from the composed DSH config."
 }
 
 Write-Host ""
-Write-Host "Installed $($entries.Count) files successfully."
-Write-Host "Restart dsh web, then refresh the browser."
-Write-Host "Manual process: .\relaunch-dsh-web.ps1"
-Write-Host "Scheduled task: .\relaunch-dsh-web.ps1 -TaskName '<your task name>'"
-Write-Host "To restore the pristine files: .\uninstall.ps1"
+Write-Host "API `$`$ is installed as a native DSH plugin."
+Write-Host "No DSH package files were overwritten, and retained session history was left in place."
+Write-Host "Restart dsh web once, then refresh the browser."
+Write-Host "To remove it completely: .\uninstall.ps1 -Profile $Profile"

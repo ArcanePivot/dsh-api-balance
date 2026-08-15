@@ -2,246 +2,220 @@
 
 [简体中文](INSTALL.md) | [English](INSTALL.en.md) | [Back to README](README.en.md)
 
-This guide covers download, install, restart, verification, uninstall, upgrades, and common failures. The installer supports only a global npm installation of `@deepseek-ai/dsh@0.1.0-rc.6`.
+`v0.5.x` is a native DSH Cordis bundle. A normal install changes only the selected profile manifest. It does not overwrite npm files or modify the session directory.
 
-## Before installing
+## Prerequisites
 
-1. Install Node.js and npm.
-2. Install the exact supported DSH version globally:
+1. Install Node.js `20.16+`, pnpm, and the tested DSH baseline:
 
    ```sh
+   corepack enable
    npm install -g @deepseek-ai/dsh@0.1.0-rc.6
-   ```
-
-3. Confirm the version:
-
-   ```sh
    dsh --version
+   pnpm --version
    ```
 
-4. Save the DeepSeek API key under `Settings -> Models`, or expose `DEEPSEEK_API_KEY` to the process that launches DSH.
-5. Make sure no other patch has changed `dsh-host-apiproxy/lib/index.js` or `dsh-client-ui-sidebar/lib/client.js`. The first install verifies the official SHA-256 values.
+2. Save the DeepSeek API key under `Settings -> Models`, or expose `DEEPSEEK_API_KEY` to the DSH process.
+3. Download the current `.tgz` asset from [Releases](https://github.com/ArcanePivot/dsh-api-balance/releases).
+4. Pick a profile. The regular Web UI uses `web`.
 
-> [!NOTE]
-> Running only `npx @deepseek-ai/dsh web` is not a global installation. API $$ needs a stable global DSH directory that the installer can locate.
-
-## Get the project
-
-Pin the formal release tag so a future `main` update cannot install unreleased code unexpectedly:
+## Install with DSH directly
 
 ```sh
-git clone --branch v0.4.2 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
-cd dsh-api-balance
+dsh plugin --profile web add ./arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz
+dsh --profile web --dump-config
 ```
 
-You can also download the source archive from the [`v0.4.2` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.2). Open a terminal in the extracted directory containing `install.ps1` and `install.sh`.
+The dump should contain:
 
-## Windows
+```text
+name: '@arcanepivot/dsh-api-balance'
+```
 
-### Install
+This is the recommended first-install path and uses the official DSH profile/bundle mechanism.
 
-Run in PowerShell:
+## Windows wrapper
+
+The wrapper also migrates a legacy `v0.4.x` patch and verifies the resulting profile.
 
 ```powershell
-.\install.ps1 -WhatIf
-.\install.ps1
+.\install.ps1 -PackageSpec .\arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz -WhatIf
+.\install.ps1 -PackageSpec .\arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz
 ```
 
-`-WhatIf` validates the version, source files, target files, and backup state without writing to DSH. The first real install stores official files and a checksum manifest in `backup/`.
+Custom profile:
 
-If Windows blocks scripts downloaded from the internet, remove the download marker only from this project:
+```powershell
+.\install.ps1 -Profile my-web -PackageSpec .\arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz
+```
+
+If Windows blocks downloaded scripts, unblock only this checkout rather than weakening the machine-wide policy:
 
 ```powershell
 Get-ChildItem -Recurse -File | Unblock-File
-.\install.ps1 -WhatIf
 ```
 
-Do not permanently weaken the machine-wide PowerShell execution policy for this project.
+## macOS wrapper
 
-### Restart
+```bash
+./install.sh --package-spec ./arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz --dry-run
+./install.sh --package-spec ./arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz
+```
 
-For a manually launched DSH process on the official default port `3080`:
+Custom profile:
+
+```bash
+./install.sh --profile my-web --package-spec ./arcanepivot-dsh-api-balance-0.5.0-rc.1.tgz
+```
+
+If archive extraction removed executable bits, call the script through `bash ./install.sh ...`.
+
+## Restart DSH
+
+The host loads bundles at startup, so a browser refresh alone is not enough after install.
+
+For a manually started server on the official default port:
 
 ```powershell
+# Windows
 .\relaunch-dsh-web.ps1
 ```
 
-For a custom address or port:
+```bash
+# macOS
+./relaunch-dsh-web.sh
+```
+
+Custom port:
 
 ```powershell
 .\relaunch-dsh-web.ps1 -HostAddress "127.0.0.1" -Port 34567
 ```
 
-If Task Scheduler owns DSH, restart the original task instead of launching a second process:
-
-```powershell
-.\relaunch-dsh-web.ps1 -TaskName "<your DSH task name>"
-```
-
-This preserves the task's `DSH_HOME`, API key, proxy, permission mode, and hidden-window settings.
-
-### Uninstall
-
-```powershell
-.\uninstall.ps1 -WhatIf
-.\uninstall.ps1
-.\relaunch-dsh-web.ps1
-```
-
-A successful uninstall verifies and restores both official DSH files, then removes `backup/`, its manifest, and the stored pristine copies. `-WhatIf` does not write or remove anything. The uninstaller does not self-delete the source checkout downloaded by the user; remove that directory normally when it is no longer needed.
-
-Use the `-TaskName` form for the last command when Task Scheduler owns DSH.
-
-## macOS
-
-### Install
-
-```bash
-./install.sh --dry-run
-./install.sh
-```
-
-If a downloaded source archive loses executable bits, invoke the script explicitly through Bash:
-
-```bash
-bash ./install.sh --dry-run
-bash ./install.sh
-```
-
-The first install stores official files and a checksum manifest in `backup-macos/`.
-
-### Restart
-
-For a manually launched DSH process on the official default port `3080`:
-
-```bash
-./relaunch-dsh-web.sh
-```
-
-For a custom address or port:
-
 ```bash
 ./relaunch-dsh-web.sh --host 127.0.0.1 --port 34567
 ```
 
-If launchd owns DSH, restart the original service:
+If Task Scheduler or launchd owns DSH, restart that service rather than creating a second process:
 
-```bash
-./relaunch-dsh-web.sh --launchd-label "<your launchd label>"
+```powershell
+.\relaunch-dsh-web.ps1 -TaskName "<task name>"
 ```
 
-The default service domain is `gui/<current user UID>`. Add `--launchd-domain system` for a system service.
+```bash
+./relaunch-dsh-web.sh --launchd-label "<launchd label>"
+```
 
-### Uninstall
+## Acceptance check
+
+1. Refresh normally without clearing site data.
+2. The sidebar shows `API Balance ¥xx · Today ¥xx` or its Chinese equivalent.
+3. Clicking it opens the `API $$` panel.
+4. `All / V4 Flash / V4 Pro` updates the four Token/cost totals and daily bars.
+5. The pricing section switches among legacy, off-peak, and peak schedules and links the official source.
+6. Existing projects, sessions, and conversations remain present.
+
+If balance lookup fails while local usage works, check the DeepSeek key, `baseURL`, and DSH process environment. The plugin does not return the key or upstream error body to the browser.
+
+## Migrate from v0.4.x
+
+The safest path keeps the original checkout and its untracked `backup/` or `backup-macos/` directory:
+
+```sh
+git fetch --tags
+git checkout v0.5.0-rc.1
+```
+
+Then run the platform wrapper with an explicit `.tgz`. It verifies the old state, restores pristine DSH files, removes legacy state, and installs the native bundle.
+
+Migration protection includes:
+
+- stop on a backup SHA-256 mismatch;
+- stop when a target is neither the known official file nor a known legacy patch;
+- transactionally restore the pre-migration files if restoration fails;
+- never involve `DSH_HOME/sessions`.
+
+If the old checkout is gone, do not copy a backup from another machine. Recover the matching local `v0.4.2` checkout and backup to uninstall, or reinstall that exact DSH version to restore official files before installing the native release.
+
+## Upgrade the plugin
+
+Run `add` again against the same profile:
+
+```sh
+dsh plugin --profile web add ./arcanepivot-dsh-api-balance-<new-version>.tgz
+```
+
+Restart DSH and verify the UI. The plugin owns no usage database; analytics continue to use DSH-retained sessions.
+
+## Upgrade DSH
+
+The native plugin no longer requires restoring core files first, but Harness is a developer preview and its services or slots can still change. Recommended sequence:
+
+1. Confirm API $$ declares support for the target DSH version.
+2. Temporarily remove the plugin.
+3. Upgrade and verify DSH.
+4. Install the compatible API $$ release.
+
+Native isolation is not a reason to skip compatibility testing.
+
+## Uninstall
+
+Direct removal:
+
+```sh
+dsh plugin --profile web remove @arcanepivot/dsh-api-balance
+```
+
+Or use the wrappers:
+
+```powershell
+.\uninstall.ps1 -WhatIf
+.\uninstall.ps1
+```
 
 ```bash
 ./uninstall.sh --dry-run
 ./uninstall.sh
-./relaunch-dsh-web.sh
 ```
 
-A successful uninstall verifies and restores both official DSH files, then removes `backup-macos/`, its manifest, and the stored pristine copies. `--dry-run` does not write or remove anything. The uninstaller does not self-delete the source checkout downloaded by the user; remove that directory normally when it is no longer needed.
-
-Use the `--launchd-label` form for the last command when launchd owns DSH.
-
-## Verify the result
-
-1. Refresh the browser once without clearing site data.
-2. Confirm that `API 余额 ¥xx · 今日使用 ¥xx` or `API Balance ¥xx · Today ¥xx` appears at the bottom of the sidebar.
-3. Click it and confirm that the `API $$` details popover opens.
-4. Refresh the balance and verify account status, currency, topped-up balance, granted balance, and timestamp.
-5. Select `All / V4 Flash / V4 Pro` and confirm that each model updates Today, This week, This month, All time, estimated cost, and the daily chart.
-6. Switch `Before change / Off-peak / Peak` in the price section and confirm the CNY-per-million-Token rates for cache-hit input, cache-miss input, and output.
-7. Switch to the previous month and back; future dates in the current month should remain zero.
-8. Confirm that existing projects, sessions, and conversation history are unchanged.
-
-Expanding the sidebar starts a background scan of retained local sessions so today's estimated cost can appear in the footer. Unchanged sessions reuse an in-process cache, so later refreshes are usually faster.
-
-The installer is idempotent. If the target files already match this project and the backup is valid, it does not overwrite them again. Promoting an identical release candidate to the final release updates only the backup-manifest version.
-
-## Upgrade from an older API $$ release
-
-The safest path is to reuse the original project directory because its `backup/` or `backup-macos/` contains the verified pristine files:
-
-```sh
-git fetch --tags
-git checkout v0.4.2
-```
-
-Then run `.\install.ps1 -WhatIf` and `.\install.ps1` on Windows, or `./install.sh --dry-run` and `./install.sh` on macOS. From `v0.2.0`, `v0.3.0`, or `v0.4.1`, the installer verifies that the targets match the previous patch, replaces both files transactionally, and updates the manifest. From `v0.4.0-rc.1` or `v0.4.0`, it also retains and reuses the verified pristine backup. Conversation history is not involved.
-
-If you downloaded `v0.4.2` into a new directory, first use the old directory's uninstaller to restore the official files, then install from the new directory. The old source checkout is installation media and can be deleted after the official files are confirmed restored. Never copy a backup directory from another machine or DSH version, and do not bypass the official-file guard.
-
-## Upgrade DSH
-
-Use this order:
-
-1. Run this project's uninstaller to restore official files.
-2. Restart and confirm that DSH still opens normally.
-3. Upgrade DSH.
-4. Wait for an API $$ release that exactly matches the new DSH version.
-
-Do not rerun an old installer after upgrading DSH. The version and SHA-256 guards exist to prevent old code from overwriting a new release.
+If legacy `v0.4.x` state is present, the wrappers restore it safely first. Restart DSH afterwards. Removal does not delete the downloaded source directory or DSH sessions.
 
 ## Troubleshooting
 
-### Global DSH cannot be found
+### `dsh` or `pnpm` is missing
 
-The error contains `Could not locate a global @deepseek-ai/dsh installation` or `could not locate a global`.
+Make sure the installer and DSH run under the same user and PATH:
 
 ```sh
-npm install -g @deepseek-ai/dsh@0.1.0-rc.6
-npm root -g
+command -v dsh
+command -v pnpm
 ```
 
-Run the installer and DSH under the same user and the same Node/npm installation.
+On Windows:
 
-### Unsupported DSH version
-
-This release supports only `0.1.0-rc.6`. Do not bypass the check. Restore or install the supported version, or wait for a matching API $$ release.
-
-### Target file is not an official original
-
-On first install, both target files must match the official npm package. If another patch is present, use that project's uninstaller first. If the state is unclear, reinstall official DSH and rerun `-WhatIf` or `--dry-run`.
-
-### Balance unavailable
-
-Check in this order:
-
-1. The DeepSeek key is saved under `Settings -> Models`.
-2. When using an environment variable, the restarted DSH service actually inherits `DEEPSEEK_API_KEY`.
-3. A custom `baseURL` is trusted, reachable, and supports `/user/balance`.
-4. If a reverse proxy fronts DSH, same-origin `/api/llm.balance` still reaches the original DSH host.
-
-Never paste an API key, account-balance screenshot, or private URL into a public issue.
-
-A balance-route failure does not block local usage aggregation. The usage route needs no API key and makes no request to DeepSeek.
-
-### Usage is zero or incomplete
-
-This panel reports retained local DSH sessions, not the official DeepSeek account-wide bill. Check that:
-
-1. Calls used DSH's official `deepseek-official` provider and the provider returned Token usage.
-2. Their session logs still exist under the current `DSH_HOME`; deleted sessions cannot be backfilled.
-3. Calls made on other computers, by other clients, or directly against the API are intentionally excluded.
-4. Dates use the browser timezone, and the current week begins Monday at midnight.
-
-Copied history at the start of forked sessions is excluded to prevent double-counting the same Tokens.
-
-### Old UI remains after restart
-
-Confirm that you restarted the DSH process and port serving the current page, then perform a normal refresh. Site-data deletion is unnecessary and can remove local UI preferences.
-
-### Uninstaller refuses to overwrite
-
-The target file, backup manifest, or SHA-256 no longer matches. The uninstaller stops rather than overwriting a third-party change. Keep the complete error and open an issue only after removing keys and private paths.
-
-## Local verification
-
-With Bash, Git, npm, and Node available, run the same core checks used by CI:
-
-```bash
-./scripts/verify-patches.sh
+```powershell
+Get-Command dsh
+Get-Command pnpm
 ```
 
-The verifier downloads official npm packages into a temporary directory. It does not install DSH permanently on the current machine.
+### No plugin row in `dump-config`
+
+Verify that the profile name matches:
+
+```sh
+dsh --profile web --dump-config
+```
+
+The default manifest is `$DSH_HOME/profiles/web/package.json`, or `~/.dsh/profiles/web/package.json` when `DSH_HOME` is unset.
+
+### The panel does not appear
+
+The host bundle loads only when DSH starts. Confirm the original process was restarted, the Web UI uses the same `DSH_HOME` and profile, and startup logs contain no plugin load error.
+
+### Usage is lower than the official bill
+
+This is an expected boundary. The plugin aggregates retained sessions on this DSH host only. Deleted logs and calls from other clients are absent. The DeepSeek bill remains authoritative.
+
+### Legacy migration refuses to overwrite
+
+The current DSH file or backup is not in a recognized state. The installer stops to protect third-party changes. Preserve the full error and redact keys, balances, usernames, and private paths before opening an issue.

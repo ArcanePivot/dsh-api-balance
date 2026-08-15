@@ -2,21 +2,42 @@
 set -euo pipefail
 
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "$project_root/scripts/common.sh"
-
+package_name="@arcanepivot/dsh-api-balance"
+profile="web"
+package_spec="${DSH_API_BALANCE_PACKAGE_SPEC:-}"
 dry_run=0
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run]
+Usage: ./install.sh [--profile NAME] [--package-spec SPEC] [--dry-run]
 
-Install API $$ into a supported global DeepSeek Harness installation on macOS.
-The first run stores checksummed pristine files in backup-macos/.
+Install API $$ as a native DSH bundle. Existing v0.4.x core-file patches are
+restored first; retained DSH sessions and usage history are never modified.
+If --package-spec is omitted, exactly one release .tgz must sit beside this script.
 EOF
+}
+
+die() {
+  printf 'Error: %s\n' "$*" >&2
+  exit 1
+}
+
+require_command() {
+  command -v "$1" >/dev/null 2>&1 || die "required command not found: $1"
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --profile)
+      [ "$#" -ge 2 ] || die "--profile requires a value"
+      profile="$2"
+      shift
+      ;;
+    --package-spec)
+      [ "$#" -ge 2 ] || die "--package-spec requires a value"
+      package_spec="$2"
+      shift
+      ;;
     --dry-run)
       dry_run=1
       ;;
@@ -25,200 +46,66 @@ while [ "$#" -gt 0 ]; do
       exit 0
       ;;
     *)
-      dsh_balance_die "unknown option: $1"
+      die "unknown option: $1"
       ;;
   esac
   shift
 done
 
-if [ "$(uname -s)" != "Darwin" ] && [ "${DSH_API_BALANCE_TEST_MODE:-0}" != "1" ]; then
-  dsh_balance_die "install.sh supports macOS only; use install.ps1 on Windows"
-fi
+require_command dsh
+require_command pnpm
+require_command node
 
-DSH_API_BALANCE_PROJECT_ROOT="$project_root"
-DSH_API_BALANCE_BACKUP_ROOT="$project_root/backup-macos"
-
-dsh_balance_find_install
-dsh_balance_assert_supported_install
-dsh_balance_assert_entry_files
-
-printf 'DSH: %s\n' "$DSH_API_BALANCE_DSH_ROOT"
-printf 'Version: %s (supported)\n' "$DSH_API_BALANCE_DSH_VERSION"
-
-matching_targets=0
-index=0
-while [ "$index" -lt "${#DSH_API_BALANCE_PACKAGES[@]}" ]; do
-  source_path="$(dsh_balance_source_path "$index")"
-  target_path="$(dsh_balance_target_path "$index")"
-  if [ "$(dsh_balance_sha256 "$source_path")" = "$(dsh_balance_sha256 "$target_path")" ]; then
-    matching_targets=$((matching_targets + 1))
-  fi
-  index=$((index + 1))
-done
-
-entry_count="${#DSH_API_BALANCE_PACKAGES[@]}"
-backup_exists=0
-[ -d "$DSH_API_BALANCE_BACKUP_ROOT" ] && backup_exists=1
-backup_created=0
-
-if [ "$matching_targets" -eq "$entry_count" ]; then
-  if [ "$backup_exists" -ne 1 ]; then
-    dsh_balance_die "patched files are installed but backup-macos/ is missing; reinstall DSH $DSH_API_BALANCE_SUPPORTED_DSH_VERSION cleanly first"
-  fi
-  dsh_balance_validate_backup
-  installed_patch_version="$(node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(String(value.patchVersion || ""))' "$DSH_API_BALANCE_BACKUP_ROOT/manifest.json")"
-  if [ "$installed_patch_version" != "$DSH_API_BALANCE_VERSION" ]; then
-    if [ "$dry_run" -eq 1 ]; then
-      printf 'Dry run passed. Would promote backup metadata from API $$ %s to %s; installed files already match.\n' \
-        "${installed_patch_version:-unknown}" "$DSH_API_BALANCE_VERSION"
-      exit 0
-    fi
-    mark_arguments=(
-      "mark-installed"
-      "$DSH_API_BALANCE_BACKUP_ROOT/manifest.json"
-      "$DSH_API_BALANCE_VERSION"
-    )
-    index=0
-    while [ "$index" -lt "$entry_count" ]; do
-      mark_arguments+=(
-        "$(dsh_balance_relative_path "$index")"
-        "$(dsh_balance_source_path "$index")"
-      )
-      index=$((index + 1))
-    done
-    node "$DSH_API_BALANCE_MANIFEST_TOOL" "${mark_arguments[@]}"
-    printf 'Installed files already match; promoted backup metadata to API $$ %s.\n' "$DSH_API_BALANCE_VERSION"
-    exit 0
-  fi
-  printf 'API $$ is already installed; no files changed.\n'
-  exit 0
-fi
-
-if [ "$backup_exists" -ne 1 ] && [ "$matching_targets" -gt 0 ]; then
-  dsh_balance_die "detected a partial or manually patched install without a pristine backup"
-fi
-
-if [ "$backup_exists" -eq 1 ]; then
-  dsh_balance_validate_backup
-  index=0
-  while [ "$index" -lt "$entry_count" ]; do
-    state="$(dsh_balance_target_state "$index")"
-    if [ "$state" = "unknown" ]; then
-      dsh_balance_die "refusing to overwrite an unrecognized file: $(dsh_balance_relative_path "$index")"
-    fi
-    index=$((index + 1))
+if [ -z "$package_spec" ]; then
+  candidate_count=0
+  for candidate in "$project_root"/arcanepivot-dsh-api-balance-*.tgz; do
+    [ -f "$candidate" ] || continue
+    package_spec="$candidate"
+    candidate_count=$((candidate_count + 1))
   done
-else
-  dsh_balance_assert_official_targets
+  [ "$candidate_count" -eq 1 ] || die "pass --package-spec <release.tgz>, or place exactly one arcanepivot-dsh-api-balance-*.tgz beside install.sh"
+fi
+
+legacy_root=""
+if [ -d "$project_root/backup-macos" ]; then
+  legacy_root="$project_root/backup-macos"
+elif [ -d "$project_root/backup" ]; then
+  legacy_root="$project_root/backup"
+fi
+
+if [ -n "$legacy_root" ]; then
+  if [ "$dry_run" -eq 1 ]; then
+    printf 'Legacy v0.4.x state found at %s; pristine DSH files would be restored first.\n' "$legacy_root"
+  else
+    printf 'Migrating from the v0.4.x core-file patch…\n'
+    "$project_root/uninstall.sh" --legacy-only --profile "$profile"
+  fi
 fi
 
 if [ "$dry_run" -eq 1 ]; then
-  printf 'Dry run passed. Would back up and install API $$ %s into %s.\n' \
-    "$DSH_API_BALANCE_VERSION" "$DSH_API_BALANCE_DSH_ROOT"
+  printf 'Dry run passed. Would install %s into DSH profile %s.\n' "$package_spec" "$profile"
   exit 0
 fi
 
-if [ "$backup_exists" -ne 1 ]; then
-  staging_root="$DSH_API_BALANCE_BACKUP_ROOT.staging.$$"
-  [ ! -e "$staging_root" ] || dsh_balance_die "backup staging path already exists: $staging_root"
-  mkdir -p "$staging_root"
+printf 'Installing native bundle %s into profile %s…\n' "$package_spec" "$profile"
+dsh plugin --profile "$profile" add "$package_spec"
 
-  staging_active=1
-  cleanup_staging() {
-    status=$?
-    if [ "$staging_active" -eq 1 ]; then
-      rm -rf "$staging_root"
-    fi
-    return "$status"
-  }
-  trap cleanup_staging EXIT
-  trap 'exit 130' HUP INT TERM
+dsh_home="${DSH_HOME:-$HOME/.dsh}"
+profile_manifest="$dsh_home/profiles/$profile/package.json"
+[ -f "$profile_manifest" ] || die "DSH profile manifest was not created: $profile_manifest"
+node -e '
+  const fs = require("node:fs")
+  const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"))
+  const name = process.argv[2]
+  if (typeof value.dependencies?.[name] !== "string") process.exit(1)
+  if (!Array.isArray(value.dsh?.profile?.bundles) || !value.dsh.profile.bundles.includes(name)) process.exit(2)
+' "$profile_manifest" "$package_name" || die "native bundle was not added to the profile manifest"
 
-  manifest_arguments=(
-    "create"
-    "$staging_root/manifest.json"
-    "$DSH_API_BALANCE_VERSION"
-    "$DSH_API_BALANCE_DSH_VERSION"
-    "$DSH_API_BALANCE_PLATFORM"
-  )
-  index=0
-  while [ "$index" -lt "$entry_count" ]; do
-    relative="$(dsh_balance_relative_path "$index")"
-    staged_backup="$staging_root/$relative"
-    mkdir -p "$(dirname "$staged_backup")"
-    cp -p "$(dsh_balance_target_path "$index")" "$staged_backup"
-    manifest_arguments+=(
-      "$relative"
-      "$staged_backup"
-      "$(dsh_balance_source_path "$index")"
-    )
-    index=$((index + 1))
-  done
-
-  if ! node "$DSH_API_BALANCE_MANIFEST_TOOL" "${manifest_arguments[@]}"; then
-    rm -rf "$staging_root"
-    dsh_balance_die "could not create the pristine backup manifest"
-  fi
-  mv "$staging_root" "$DSH_API_BALANCE_BACKUP_ROOT"
-  backup_created=1
-  staging_active=0
-  trap - EXIT HUP INT TERM
-  printf 'Created checksummed pristine backup: %s\n' "$DSH_API_BALANCE_BACKUP_ROOT"
+if ! dsh --profile "$profile" --dump-config | grep -Fq "name: '$package_name'"; then
+  die "native plugin row is missing from the composed DSH config"
 fi
 
-transaction_root="$(mktemp -d "${TMPDIR:-/tmp}/dsh-api-balance-install.XXXXXX")"
-index=0
-while [ "$index" -lt "$entry_count" ]; do
-  relative="$(dsh_balance_relative_path "$index")"
-  transaction_path="$transaction_root/$relative"
-  mkdir -p "$(dirname "$transaction_path")"
-  cp -p "$(dsh_balance_target_path "$index")" "$transaction_path"
-  index=$((index + 1))
-done
-
-transaction_active=1
-cleanup_transaction() {
-  status=$?
-  if [ "$transaction_active" -eq 1 ]; then
-    printf 'Installation failed. Restoring the pre-install files.\n' >&2
-    dsh_balance_restore_transaction "$transaction_root"
-    if [ "$backup_created" -eq 1 ]; then
-      rm -rf "$DSH_API_BALANCE_BACKUP_ROOT"
-    fi
-  fi
-  rm -rf "$transaction_root"
-  return "$status"
-}
-trap cleanup_transaction EXIT
-trap 'exit 130' HUP INT TERM
-
-mark_arguments=(
-  "mark-installed"
-  "$DSH_API_BALANCE_BACKUP_ROOT/manifest.json"
-  "$DSH_API_BALANCE_VERSION"
-)
-index=0
-while [ "$index" -lt "$entry_count" ]; do
-  relative="$(dsh_balance_relative_path "$index")"
-  source_path="$(dsh_balance_source_path "$index")"
-  target_path="$(dsh_balance_target_path "$index")"
-  dsh_balance_atomic_copy "$source_path" "$target_path"
-  if [ "$(dsh_balance_sha256 "$source_path")" != "$(dsh_balance_sha256 "$target_path")" ]; then
-    dsh_balance_die "post-install checksum mismatch: $relative"
-  fi
-  printf '  installed: %s\n' "$relative"
-  mark_arguments+=("$relative" "$source_path")
-  index=$((index + 1))
-done
-
-node "$DSH_API_BALANCE_MANIFEST_TOOL" "${mark_arguments[@]}"
-
-transaction_active=0
-trap - EXIT HUP INT TERM
-rm -rf "$transaction_root"
-
-printf '\nInstalled %s files successfully.\n' "$entry_count"
-printf 'Restart DSH, then refresh the browser.\n'
-printf 'Manual process: ./relaunch-dsh-web.sh\n'
-printf 'launchd service: ./relaunch-dsh-web.sh --launchd-label <label>\n'
-printf 'To restore pristine files: ./uninstall.sh\n'
+printf '\nAPI $$ is installed as a native DSH plugin.\n'
+printf 'No DSH package files were overwritten, and retained session history was left in place.\n'
+printf 'Restart dsh web once, then refresh the browser.\n'
+printf 'To remove it completely: ./uninstall.sh --profile %s\n' "$profile"
