@@ -1,13 +1,13 @@
 <h1 align="center">API $$</h1>
 
-<p align="center"><strong>DeepSeek API 余额与本机 Token 用量，常驻 DSH 侧边栏。</strong></p>
+<p align="center"><strong>DeepSeek API 余额、分模型 Token 用量与费用估算，常驻 DSH 侧边栏。</strong></p>
 
-<p align="center">不切网页，不把 API Key 交给浏览器，同时看清今日、本周、本月和累计用量。</p>
+<p align="center">不切网页，不把 API Key 交给浏览器，同时看清两款模型在不同时段用了多少、预计花了多少。</p>
 
 <p align="center">
   <strong>简体中文</strong> ·
   <a href="README.en.md">English</a> ·
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.3.0">v0.3.0</a> ·
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0">v0.4.0</a> ·
   <a href="#快速安装">快速安装</a> ·
   <a href="INSTALL.md">完整安装手册</a> ·
   <a href="SECURITY.md">安全说明</a> ·
@@ -16,31 +16,31 @@
 
 <p align="center">
   <a href="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml"><img src="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml/badge.svg" alt="Verify patches"></a>
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-v0.3.0-16a34a?style=flat-square" alt="v0.3.0 release"></a>
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-16a34a?style=flat-square" alt="v0.4.0 release"></a>
   <img src="https://img.shields.io/badge/DSH-0.1.0--rc.6%20only-111827?style=flat-square" alt="DSH 0.1.0-rc.6 only">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2563eb?style=flat-square" alt="Windows and macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
 </p>
 
 > [!IMPORTANT]
-> `v0.3.0` 仅支持 **`@deepseek-ai/dsh@0.1.0-rc.6`**。这是非官方、版本锁定的补丁包，不是原生 Cordis 插件；安装器遇到其他 DSH 版本或已被修改的目标文件会拒绝执行。
+> `v0.4.0` 仅支持 **`@deepseek-ai/dsh@0.1.0-rc.6`**。这是非官方、版本锁定的补丁包，不是原生 Cordis 插件；安装器遇到其他 DSH 版本或已被修改的目标文件会拒绝执行。
 
 ## 实际效果
 
 | 中文界面 | English UI |
 | --- | --- |
-| ![中文 API 余额入口、四档 Token 统计与每日柱状图](docs/screenshots/api-balance-zh.png) | ![English API Balance entry, four Token summaries, and daily usage chart](docs/screenshots/api-balance-en.png) |
+| ![中文 API 余额、分模型 Token 与峰谷价格](docs/screenshots/api-balance-zh.png) | ![English API Balance, per-model Token usage, and peak pricing](docs/screenshots/api-balance-en.png) |
 
 <details>
 <summary>查看 390 px 移动端窄屏效果</summary>
 
 <p align="center">
-  <img src="docs/screenshots/api-balance-mobile.png" width="360" alt="API $$ 在 390 px 移动端窄屏中的余额和 Token 用量">
+  <img src="docs/screenshots/api-balance-mobile.png" width="360" alt="API $$ 在 390 px 移动端窄屏中的分模型用量与价格表">
 </p>
 
 </details>
 
-截图来自真实 DSH Web UI；余额、用量、更新时间、工作区和会话信息均使用演示数据或已移除。
+截图按实机验收后的 DSH Web UI 制作；余额、用量、费用、时间和会话数量均为演示数据。
 
 ## 为什么装它
 
@@ -51,6 +51,9 @@
 - 中文显示 `API 余额`，英文显示 `API Balance`
 - 余额低于 `20 CNY` 时显示警示色
 - 汇总今日、本周、本月和累计 Token；本周从周一开始
+- 可点选 `全部 / V4 Flash / V4 Pro`，分别查看 Token、调用次数和每日趋势
+- 按请求发生时刻套用 DeepSeek 官方人民币单价，估算今日、本周、本月与累计费用
+- 可切换查看生效前、空闲和高峰价；当前价档、北京时间高峰区间与官方价格链接均在面板内显示
 - 显示今日缓存命中率，以及可切换月份的每日用量柱状图
 - 自动回溯本机仍保留的 DSH 会话，并排除分叉会话复制的历史前缀
 - 支持手动刷新、点击外部关闭和 `Esc` 关闭
@@ -72,11 +75,11 @@ npm install -g @deepseek-ai/dsh@0.1.0-rc.6
 ### 2. 获取项目
 
 ```sh
-git clone --branch v0.3.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.4.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-也可以从 [`v0.3.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.3.0) 下载源码包并在解压目录中执行下列命令。固定版本可以避免以后 `main` 更新时意外安装尚未发布的代码。
+也可以从 [`v0.4.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0) 下载源码包并在解压目录中执行下列命令。固定版本可以避免以后 `main` 更新时意外安装尚未发布的代码。
 
 ### 3A. Windows
 
@@ -118,12 +121,14 @@ POST /api/llm.balance  ----------->  解析 DEEPSEEK_API_KEY
 
 POST /api/llm.usage    ----------->  读取本机保留的 DSH 会话日志
 月份 + 浏览器时区                    仅在宿主内汇总，不请求外部服务
-                     <-------------  返回日期、Token 汇总与覆盖范围
+                     <-------------  返回分模型 Token、费用估算、日期与覆盖范围
 ```
 
 宿主端从 `llm-deepseek` 设置和 DSH 凭据服务读取 `baseURL`、`apiKeyEnv` 与 API Key。若配置了自定义 `baseURL`，密钥会发送到该地址，这与 DSH DeepSeek 模型适配器的行为一致；只应使用可信端点。
 
-用量统计采用浏览器时区归日；本周从周一零点开始。它只覆盖本机仍保留的 DSH 会话，不包含已删除日志、其他客户端的调用，也不是 DeepSeek 官方账单。首次打开会回溯现存会话，当前 DSH 进程内会缓存未变化会话的汇总结果。
+用量统计采用浏览器时区归日；本周从周一零点开始。模型来自每次 DSH 回复的真实来源字段。费用把缓存命中、缓存未命中和输出 Token 分开，按请求实际发生时刻匹配[DeepSeek 官方人民币价格](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/)：北京时间 2026-08-17 00:00 前使用旧价，之后高峰为 09:00–12:00、14:00–18:00，其余为空闲价。
+
+这些数字只覆盖本机仍保留的 DSH 会话，不包含已删除日志、其他客户端的调用，也不是 DeepSeek 官方账单。价格可能变化，项目使用带来源日期的版本化价格表；最终扣费始终以官方账单为准。首次打开会回溯现存会话，当前 DSH 进程内会缓存未变化会话的汇总结果。
 
 余额与用量都属于账户信息。任何能访问该 DSH Web UI 的人都能看到这些汇总，但看不到 API Key、提示词或回复正文。请继续用原有访问控制保护 DSH Web UI，详见[安全说明](SECURITY.md)。
 
@@ -158,7 +163,7 @@ macOS：
 
 升级 DSH 前必须先卸载本补丁、恢复官方文件。不要把旧补丁重新套到新版本 DSH 上；等待本项目发布匹配的新版本。
 
-从 API $$ `v0.2.0` 升级时，推荐在原安装目录切换到 `v0.3.0` 后重跑安装器，这样能复用经过校验的官方备份；使用全新目录时应先用旧目录卸载。完整步骤见[安装手册](INSTALL.md#从-api--v020-升级)。
+从 API $$ `v0.2.0`、`v0.3.0` 或 `v0.4.0-rc.1` 升级时，推荐在原安装目录切换到 `v0.4.0` 后重跑安装器，这样能复用经过校验的官方备份；候选版文件已相同时只会提升备份清单版本。使用全新目录时应先用旧目录卸载。完整步骤见[安装手册](INSTALL.md#从旧版-api--升级)。
 
 ## 验证
 
@@ -167,7 +172,7 @@ macOS：
 - 从 npm 获取官方 `0.1.0-rc.6` 包
 - 验证两个最小补丁可以干净应用
 - 验证“官方文件 + 补丁”与 `files/` 中完整文件逐字节一致
-- 运行跨会话用量聚合测试：周一周界、时区、闰年、缓存和分叉去重
+- 运行跨会话用量与费用测试：模型拆分、涨价生效点、峰谷边界、周一周界、时区、闰年、缓存和分叉去重
 - 跑完 macOS 安装、幂等、卸载、回滚和篡改拦截测试
 - 检查 Bash、PowerShell、JavaScript 语法及常见密钥和个人路径
 
