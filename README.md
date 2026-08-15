@@ -29,18 +29,18 @@
 
 | 中文界面 | English UI |
 | --- | --- |
-| ![中文 API 余额入口、四档 Token 统计与每日柱状图](docs/screenshots/api-balance-zh.png) | ![English API Balance entry, four Token summaries, and daily usage chart](docs/screenshots/api-balance-en.png) |
+| ![中文 API 余额、分模型 Token 与峰谷价格](docs/screenshots/api-balance-zh.png) | ![English API Balance, per-model Token usage, and peak pricing](docs/screenshots/api-balance-en.png) |
 
 <details>
 <summary>查看 390 px 移动端窄屏效果</summary>
 
 <p align="center">
-  <img src="docs/screenshots/api-balance-mobile.png" width="360" alt="API $$ 在 390 px 移动端窄屏中的余额和 Token 用量">
+  <img src="docs/screenshots/api-balance-mobile.png" width="360" alt="API $$ 在 390 px 移动端窄屏中的分模型用量与价格表">
 </p>
 
 </details>
 
-截图来自真实 DSH Web UI；余额、用量、更新时间、工作区和会话信息均使用演示数据或已移除。
+截图按实机验收后的 DSH Web UI 制作；余额、用量、费用、时间和会话数量均为演示数据。
 
 ## 为什么装它
 

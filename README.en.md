@@ -29,18 +29,18 @@
 
 | Simplified Chinese | English |
 | --- | --- |
-| ![Chinese API balance entry, four Token summaries, and daily chart](docs/screenshots/api-balance-zh.png) | ![English API Balance entry, four Token summaries, and daily chart](docs/screenshots/api-balance-en.png) |
+| ![Chinese API balance, per-model Token usage, and peak pricing](docs/screenshots/api-balance-zh.png) | ![English API Balance, per-model Token usage, and peak pricing](docs/screenshots/api-balance-en.png) |
 
 <details>
 <summary>View the 390 px mobile layout</summary>
 
 <p align="center">
-  <img src="docs/screenshots/api-balance-mobile.png" width="360" alt="API $$ balance and Token usage in a 390 px mobile viewport">
+  <img src="docs/screenshots/api-balance-mobile.png" width="360" alt="API $$ per-model usage and pricing in a 390 px mobile viewport">
 </p>
 
 </details>
 
-The screenshots come from a live DSH Web UI. Balance and usage values are synthetic; timestamps, workspace names, and session details have been replaced or removed.
+The screenshots reproduce the DSH Web UI validated on a live installation. Balance, usage, cost, timestamp, and session-count values are synthetic.
 
 ## Why install it
 
