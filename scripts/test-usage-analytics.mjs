@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const host = await readFile(resolve(root, "files/dsh-host-apiproxy/lib/index.js"), "utf8");
+const sidebar = await readFile(resolve(root, "files/dsh-client-ui-sidebar/lib/client.js"), "utf8");
 const match = host.match(/\/\/#region dsh-api-balance\/usage-analytics\.js\n([\s\S]*?)\/\/#endregion/);
 assert.ok(match, "usage analytics source region is present");
 
@@ -185,5 +186,10 @@ assert.equal(unpriced.totals.allTime.unpricedCalls, 1, "unknown models remain vi
 const leapMonth = aggregateDeepSeekUsage([], "2028-02", "UTC", at("2028-02-01T00:00:00Z"));
 assert.equal(leapMonth.days.length, 29, "selected-month bars follow leap-year calendars");
 assert.deepEqual(leapMonth.models.map((item) => item.model), ["deepseek-v4-flash", "deepseek-v4-pro"], "both official models remain selectable at zero usage");
+
+assert.match(sidebar, /if \(!wide\) return;\n\s+let current = true;\n\s+const controller = new AbortController\(\);\n\s+setUsageState\(\{ status: "loading" \}\);/, "sidebar usage loads without waiting for the detail popover");
+assert.match(sidebar, /const label = `\$\{balanceLabel\} · \$\{t\("usage\.todaySpent"\)\} \$\{todayCost\}`;/, "sidebar footer combines balance and today's estimated spend");
+assert.match(sidebar, /"usage\.todaySpent": "今日使用"/, "Chinese footer copy is present");
+assert.match(sidebar, /"usage\.todaySpent": "Today"/, "English footer copy is present");
 
 console.log("Model usage and official pricing fixtures passed.");

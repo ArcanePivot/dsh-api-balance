@@ -1,5 +1,5 @@
 diff --git a/lib/client.js b/lib/client.js
-index 629e313..8e7e7ca 100644
+index 629e313..13d7c95 100644
 --- a/lib/client.js
 +++ b/lib/client.js
 @@ -66,8 +66,9 @@ window.__ModuleLoader__.load({
@@ -35,7 +35,7 @@ index 629e313..8e7e7ca 100644
  							className: SidebarRoot_module_css_default.footerActions,
  							children: renderSlot("sidebar.footer.action", { wide })
  						}), (0, react_jsx_runtime.jsx)("div", {
-@@ -217,6 +221,1023 @@ window.__ModuleLoader__.load({
+@@ -217,6 +221,1026 @@ window.__ModuleLoader__.load({
  				]
  			});
  		}
@@ -99,8 +99,9 @@ index 629e313..8e7e7ca 100644
 +		}
 +		/**
 +		* Sidebar footer balance entry: an API icon plus the current DeepSeek
-+		* account balance, fetched by POSTing the same-origin `llm.balance` RPC
-+		* endpoint directly (the API key stays on the host). Clicking opens a
++		* account balance and today's estimated local usage cost, fetched by
++		* POSTing the same-origin `llm.balance` and `llm.usage` RPC endpoints
++		* directly (the API key stays on the host). Clicking opens a
 +		* details dialog with the full granted/topped-up breakdown, account
 +		* availability, and the check time, plus a refresh control. Hidden in
 +		* the collapsed rail, where the footer centers icon-only controls.
@@ -109,7 +110,7 @@ index 629e313..8e7e7ca 100644
 +		*/
 +		function SidebarBalance({ wide, t }) {
 +			const [state, setState] = (0, react.useState)({ status: "loading" });
-+			const [usageState, setUsageState] = (0, react.useState)({ status: "idle" });
++			const [usageState, setUsageState] = (0, react.useState)({ status: "loading" });
 +			const [nonce, setNonce] = (0, react.useState)(0);
 +			const [open, setOpen] = (0, react.useState)(false);
 +			const [selectedMonth, setSelectedMonth] = (0, react.useState)(currentMonthKey);
@@ -142,7 +143,7 @@ index 629e313..8e7e7ca 100644
 +				};
 +			}, [nonce, wide]);
 +			(0, react.useEffect)(() => {
-+				if (!wide || !open) return;
++				if (!wide) return;
 +				let current = true;
 +				const controller = new AbortController();
 +				setUsageState({ status: "loading" });
@@ -156,7 +157,7 @@ index 629e313..8e7e7ca 100644
 +					current = false;
 +					controller.abort();
 +				};
-+			}, [nonce, open, selectedMonth, wide]);
++			}, [nonce, selectedMonth, wide]);
 +			(0, react.useEffect)(() => {
 +				if (!open) return;
 +				const onPointerDown = (event) => {
@@ -185,7 +186,9 @@ index 629e313..8e7e7ca 100644
 +			const info = state.status === "ready" ? state.value.infos[0] : void 0;
 +			const total = info === void 0 ? Number.NaN : Number(info.totalBalance);
 +			const low = state.status === "ready" && info !== void 0 && Number.isFinite(total) && total < LOW_BALANCE_THRESHOLD;
-+			const label = state.status === "ready" ? `${t("balance.shortLabel")} ${formatAmount(info?.currency ?? "", info?.totalBalance ?? "")}` : state.status === "error" ? t("balance.unavailable") : t("balance.loading");
++			const balanceLabel = state.status === "ready" ? `${t("balance.shortLabel")} ${formatAmount(info?.currency ?? "", info?.totalBalance ?? "")}` : state.status === "error" ? t("balance.unavailable") : t("balance.loading");
++			const todayCost = usageState.status === "ready" ? formatEstimatedCost(usageState.value.totals.today.estimatedCostCny) : usageState.status === "error" ? "--" : "…";
++			const label = `${balanceLabel} · ${t("usage.todaySpent")} ${todayCost}`;
 +			const title = state.status === "ready" ? `${t("balance.title")}: ${label}${low ? ` (${t("balance.low")})` : ""}` : state.status === "error" ? `${t("balance.unavailable")}: ${state.message}` : t("balance.loading");
 +			const rowStyle = {
 +				display: "flex",
@@ -1059,7 +1062,7 @@ index 629e313..8e7e7ca 100644
  		//#endregion
  		//#region lib/types/client/locales.js
  		/** `sidebar` namespace dictionaries: shell controls (brand row, New Session, fold toggle). */
-@@ -225,14 +1243,128 @@ window.__ModuleLoader__.load({
+@@ -225,14 +1249,130 @@ window.__ModuleLoader__.load({
  			"session.new": "新会话",
  			"session.new.label": "新建会话",
  			"toggle.open": "打开侧边栏",
@@ -1093,6 +1096,7 @@ index 629e313..8e7e7ca 100644
 +			"usage.model.pro": "V4 Pro",
 +			"usage.loading": "正在汇总本机用量…",
 +			"usage.today": "今日",
++			"usage.todaySpent": "今日使用",
 +			"usage.week": "本周",
 +			"usage.month": "本月",
 +			"usage.allTime": "累计",
@@ -1158,6 +1162,7 @@ index 629e313..8e7e7ca 100644
 +			"usage.model.pro": "V4 Pro",
 +			"usage.loading": "Summarizing local usage…",
 +			"usage.today": "Today",
++			"usage.todaySpent": "Today",
 +			"usage.week": "This week",
 +			"usage.month": "This month",
 +			"usage.allTime": "All time",
@@ -1190,7 +1195,7 @@ index 629e313..8e7e7ca 100644
  		};
  		//#endregion
  		//#region lib/types/client/index.js
-@@ -289,4 +1421,4 @@ window.__ModuleLoader__.load({
+@@ -289,4 +1429,4 @@ window.__ModuleLoader__.load({
  	}
  });
  

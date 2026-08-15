@@ -2,7 +2,7 @@
 
 # Shared macOS lifecycle helpers. Keep this compatible with Apple's Bash 3.2.
 
-DSH_API_BALANCE_VERSION="0.4.1"
+DSH_API_BALANCE_VERSION="0.4.2"
 DSH_API_BALANCE_SUPPORTED_DSH_VERSION="0.1.0-rc.6"
 DSH_API_BALANCE_PLATFORM="darwin"
 

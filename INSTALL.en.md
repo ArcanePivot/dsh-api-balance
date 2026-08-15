@@ -30,11 +30,11 @@ This guide covers download, install, restart, verification, uninstall, upgrades,
 Pin the formal release tag so a future `main` update cannot install unreleased code unexpectedly:
 
 ```sh
-git clone --branch v0.4.1 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.4.2 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-You can also download the source archive from the [`v0.4.1` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.1). Open a terminal in the extracted directory containing `install.ps1` and `install.sh`.
+You can also download the source archive from the [`v0.4.2` release page](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.2). Open a terminal in the extracted directory containing `install.ps1` and `install.sh`.
 
 ## Windows
 
@@ -147,7 +147,7 @@ Use the `--launchd-label` form for the last command when launchd owns DSH.
 ## Verify the result
 
 1. Refresh the browser once without clearing site data.
-2. Confirm that `API 余额` or `API Balance` appears at the bottom of the sidebar.
+2. Confirm that `API 余额 ¥xx · 今日使用 ¥xx` or `API Balance ¥xx · Today ¥xx` appears at the bottom of the sidebar.
 3. Click it and confirm that the `API $$` details popover opens.
 4. Refresh the balance and verify account status, currency, topped-up balance, granted balance, and timestamp.
 5. Select `All / V4 Flash / V4 Pro` and confirm that each model updates Today, This week, This month, All time, estimated cost, and the daily chart.
@@ -155,7 +155,7 @@ Use the `--launchd-label` form for the last command when launchd owns DSH.
 7. Switch to the previous month and back; future dates in the current month should remain zero.
 8. Confirm that existing projects, sessions, and conversation history are unchanged.
 
-The first usage-panel open may scan retained local session logs. Unchanged sessions reuse an in-process cache, so later refreshes are usually faster.
+Expanding the sidebar starts a background scan of retained local sessions so today's estimated cost can appear in the footer. Unchanged sessions reuse an in-process cache, so later refreshes are usually faster.
 
 The installer is idempotent. If the target files already match this project and the backup is valid, it does not overwrite them again. Promoting an identical release candidate to the final release updates only the backup-manifest version.
 
@@ -165,12 +165,12 @@ The safest path is to reuse the original project directory because its `backup/`
 
 ```sh
 git fetch --tags
-git checkout v0.4.1
+git checkout v0.4.2
 ```
 
-Then run `.\install.ps1 -WhatIf` and `.\install.ps1` on Windows, or `./install.sh --dry-run` and `./install.sh` on macOS. From `v0.2.0` or `v0.3.0`, the installer verifies that the targets match the previous patch, replaces both files transactionally, and updates the manifest. From `v0.4.0-rc.1` or `v0.4.0`, identical runtime files only promote the manifest version. Conversation history is not involved.
+Then run `.\install.ps1 -WhatIf` and `.\install.ps1` on Windows, or `./install.sh --dry-run` and `./install.sh` on macOS. From `v0.2.0`, `v0.3.0`, or `v0.4.1`, the installer verifies that the targets match the previous patch, replaces both files transactionally, and updates the manifest. From `v0.4.0-rc.1` or `v0.4.0`, it also retains and reuses the verified pristine backup. Conversation history is not involved.
 
-If you downloaded `v0.4.1` into a new directory, first use the old directory's uninstaller to restore the official files, then install from the new directory. The old source checkout is installation media and can be deleted after the official files are confirmed restored. Never copy a backup directory from another machine or DSH version, and do not bypass the official-file guard.
+If you downloaded `v0.4.2` into a new directory, first use the old directory's uninstaller to restore the official files, then install from the new directory. The old source checkout is installation media and can be deleted after the official files are confirmed restored. Never copy a backup directory from another machine or DSH version, and do not bypass the official-file guard.
 
 ## Upgrade DSH
 
