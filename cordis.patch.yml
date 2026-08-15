@@ -1,0 +1,3 @@
+- insert:
+    - id: api-balance
+      name: '@arcanepivot/dsh-api-balance'

@@ -1,0 +1,61 @@
+export declare const NS = "api-balance";
+export declare const zh: {
+    'balance.title': string;
+    'balance.shortLabel': string;
+    'balance.loading': string;
+    'balance.unavailable': string;
+    'balance.granted': string;
+    'balance.toppedUp': string;
+    'balance.close': string;
+    'balance.refresh': string;
+    'balance.retryAction': string;
+    'balance.availableShort': string;
+    'balance.notAvailableShort': string;
+    'balance.updatedAt': string;
+    'balance.low': string;
+    'balance.detailHint': string;
+    'usage.title': string;
+    'usage.model.select': string;
+    'usage.model.all': string;
+    'usage.model.flash': string;
+    'usage.model.pro': string;
+    'usage.loading': string;
+    'usage.today': string;
+    'usage.todaySpent': string;
+    'usage.week': string;
+    'usage.month': string;
+    'usage.allTime': string;
+    'usage.cacheHit': string;
+    'usage.daily': string;
+    'usage.previousMonth': string;
+    'usage.nextMonth': string;
+    'usage.empty': string;
+    'usage.tokens': string;
+    'usage.calls': string;
+    'usage.coverage': string;
+    'usage.skipped': string;
+    'usage.scopeHint': string;
+    'pricing.title': string;
+    'pricing.current': string;
+    'pricing.select': string;
+    'pricing.phase.legacy': string;
+    'pricing.phase.offPeak': string;
+    'pricing.phase.peak': string;
+    'pricing.model': string;
+    'pricing.cacheHit': string;
+    'pricing.cacheMiss': string;
+    'pricing.output': string;
+    'pricing.unit': string;
+    'pricing.peakHours': string;
+    'pricing.offPeakRest': string;
+    'pricing.effectiveAt': string;
+    'pricing.estimateHint': string;
+    'pricing.source': string;
+};
+export type ApiBalanceKey = keyof typeof zh;
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+    interface LocaleNamespaceMap {
+        'api-balance': ApiBalanceKey;
+    }
+}
+export declare const en: Record<ApiBalanceKey, string>;
