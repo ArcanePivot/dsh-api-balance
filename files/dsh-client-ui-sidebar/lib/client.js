@@ -269,6 +269,16 @@ window.__ModuleLoader__.load({
 			if (value >= 1e3) return compact(1e3, "K");
 			return value.toLocaleString();
 		}
+		/** Estimated CNY amount with extra precision for small retained-session totals. */
+		function formatEstimatedCost(value) {
+			const digits = value > 0 && value < 0.01 ? 4 : 2;
+			return new Intl.NumberFormat(void 0, {
+				style: "currency",
+				currency: "CNY",
+				minimumFractionDigits: digits,
+				maximumFractionDigits: digits
+			}).format(value);
+		}
 		/**
 		* Sidebar footer balance entry: an API icon plus the current DeepSeek
 		* account balance, fetched by POSTing the same-origin `llm.balance` RPC
@@ -285,6 +295,8 @@ window.__ModuleLoader__.load({
 			const [nonce, setNonce] = (0, react.useState)(0);
 			const [open, setOpen] = (0, react.useState)(false);
 			const [selectedMonth, setSelectedMonth] = (0, react.useState)(currentMonthKey);
+			const [selectedModel, setSelectedModel] = (0, react.useState)("all");
+			const [selectedPricePhase, setSelectedPricePhase] = (0, react.useState)(null);
 			const [anchor, setAnchor] = (0, react.useState)(null);
 			const buttonRef = (0, react.useRef)(null);
 			const popoverRef = (0, react.useRef)(null);
@@ -456,6 +468,10 @@ window.__ModuleLoader__.load({
 							low,
 							selectedMonth,
 							onMonthChange: setSelectedMonth,
+							selectedModel,
+							onModelChange: setSelectedModel,
+							selectedPricePhase,
+							onPricePhaseChange: setSelectedPricePhase,
 							formatAmount,
 							onRetry: refresh,
 							t
@@ -622,7 +638,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/** Balance account summary followed by retained-session usage analytics. */
-		function BalanceDetailBody({ state, usageState, info, low, selectedMonth, onMonthChange, formatAmount, onRetry, t }) {
+		function BalanceDetailBody({ state, usageState, info, low, selectedMonth, onMonthChange, selectedModel, onModelChange, selectedPricePhase, onPricePhaseChange, formatAmount, onRetry, t }) {
 			const textStyle = {
 				color: "var(--dsw-alias-label-primary)",
 				fontSize: 13,
@@ -750,6 +766,10 @@ window.__ModuleLoader__.load({
 						state: usageState,
 						selectedMonth,
 						onMonthChange,
+						selectedModel,
+						onModelChange,
+						selectedPricePhase,
+						onPricePhaseChange,
 						onRetry,
 						t
 					})
@@ -757,7 +777,7 @@ window.__ModuleLoader__.load({
 			});
 		}
 		/** Headline token totals, cache ratio, and a responsive daily bar chart. */
-		function UsageAnalyticsBody({ state, selectedMonth, onMonthChange, onRetry, t }) {
+		function UsageAnalyticsBody({ state, selectedMonth, onMonthChange, selectedModel, onModelChange, selectedPricePhase, onPricePhaseChange, onRetry, t }) {
 			const sectionStyle = {
 				marginTop: 14,
 				paddingTop: 14,
@@ -814,11 +834,14 @@ window.__ModuleLoader__.load({
 				})]
 			});
 			const value = state.value;
+			const selectedSeries = selectedModel === "all" ? value : value.models.find((item) => item.model === selectedModel) ?? value;
+			const modelName = (model) => model === "deepseek-v4-flash" ? t("usage.model.flash") : model === "deepseek-v4-pro" ? t("usage.model.pro") : model;
 			const metric = (label, bucket) => (0, react_jsx_runtime.jsxs)("div", {
 				style: {
 					minWidth: 0,
-					padding: "8px 9px"
+					padding: "8px 7px"
 				},
+				title: `${bucket.totalTokens.toLocaleString()} ${t("usage.tokens")} · ${formatEstimatedCost(bucket.estimatedCostCny)}`,
 				children: [(0, react_jsx_runtime.jsx)("strong", {
 					style: {
 						display: "block",
@@ -830,7 +853,6 @@ window.__ModuleLoader__.load({
 						textOverflow: "ellipsis",
 						whiteSpace: "nowrap"
 					},
-					title: bucket.totalTokens.toLocaleString(),
 					children: formatTokenCount(bucket.totalTokens)
 				}), (0, react_jsx_runtime.jsx)("span", {
 					style: {
@@ -840,12 +862,25 @@ window.__ModuleLoader__.load({
 						color: "var(--dsw-alias-label-secondary)"
 					},
 					children: label
+				}), (0, react_jsx_runtime.jsx)("span", {
+					style: {
+						display: "block",
+						fontSize: 10,
+						lineHeight: "15px",
+						color: "var(--dsw-static-blue-450)",
+						fontWeight: 600,
+						overflow: "hidden",
+						textOverflow: "ellipsis",
+						whiteSpace: "nowrap"
+					},
+					children: formatEstimatedCost(bucket.estimatedCostCny)
 				})]
 			});
-			const days = value.days;
+			const days = selectedSeries.days;
 			const maxTokens = Math.max(0, ...days.map((day) => day.totalTokens));
-			const today = value.today;
+			const today = selectedSeries.today;
 			const current = currentMonthKey();
+			const modelOptions = [{ id: "all", label: t("usage.model.all"), series: value }, ...value.models.filter((item) => item.model === "deepseek-v4-flash" || item.model === "deepseek-v4-pro").map((item) => ({ id: item.model, label: modelName(item.model), series: item }))];
 			const iconButtonStyle = {
 				width: 28,
 				height: 28,
@@ -863,6 +898,59 @@ window.__ModuleLoader__.load({
 				style: sectionStyle,
 				children: [
 					heading,
+					(0, react_jsx_runtime.jsx)("div", {
+						role: "group",
+						"aria-label": t("usage.model.select"),
+						style: {
+							display: "grid",
+							gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+							marginBottom: 10,
+							border: "1px solid var(--dsw-alias-border-l2)",
+							borderRadius: 7,
+							overflow: "hidden"
+						},
+						children: modelOptions.map((option, index) => {
+							const active = selectedModel === option.id;
+							return (0, react_jsx_runtime.jsxs)("button", {
+								type: "button",
+								style: {
+									minWidth: 0,
+									height: 50,
+									padding: "5px 6px",
+									border: "none",
+									borderLeft: index === 0 ? "none" : "1px solid var(--dsw-alias-border-l2)",
+									background: active ? "var(--dsw-static-blue-450)" : "var(--dsw-alias-button-elevated-fill)",
+									color: active ? "white" : "var(--dsw-alias-label-primary)",
+									font: "inherit",
+									cursor: "pointer"
+								},
+								onClick: () => onModelChange(option.id),
+								children: [(0, react_jsx_runtime.jsx)("span", {
+									style: {
+										display: "block",
+										fontSize: 11,
+										lineHeight: "15px",
+										fontWeight: 650,
+										overflow: "hidden",
+										textOverflow: "ellipsis",
+										whiteSpace: "nowrap"
+									},
+									children: option.label
+								}), (0, react_jsx_runtime.jsx)("span", {
+									style: {
+										display: "block",
+										fontSize: 10,
+										lineHeight: "15px",
+										opacity: active ? 0.9 : 0.68,
+										overflow: "hidden",
+										textOverflow: "ellipsis",
+										whiteSpace: "nowrap"
+									},
+									children: formatTokenCount(option.series.totals.allTime.totalTokens)
+								})]
+							}, option.id);
+						})
+					}),
 					(0, react_jsx_runtime.jsxs)("div", {
 						style: {
 							display: "grid",
@@ -872,7 +960,7 @@ window.__ModuleLoader__.load({
 							borderRadius: 8,
 							overflow: "hidden"
 						},
-						children: [metric(t("usage.today"), value.totals.today), metric(t("usage.week"), value.totals.week), metric(t("usage.month"), value.totals.month), metric(t("usage.allTime"), value.totals.allTime)]
+						children: [metric(t("usage.today"), selectedSeries.totals.today), metric(t("usage.week"), selectedSeries.totals.week), metric(t("usage.month"), selectedSeries.totals.month), metric(t("usage.allTime"), selectedSeries.totals.allTime)]
 					}),
 					(0, react_jsx_runtime.jsxs)("div", {
 						style: {
@@ -888,7 +976,7 @@ window.__ModuleLoader__.load({
 							children: t("usage.cacheHit")
 						}), (0, react_jsx_runtime.jsx)("strong", {
 							style: { color: "var(--dsw-alias-label-primary)", fontWeight: 600 },
-							children: value.totals.today.cacheHitRate === null ? "—" : new Intl.NumberFormat(void 0, { style: "percent", maximumFractionDigits: 1 }).format(value.totals.today.cacheHitRate)
+							children: selectedSeries.totals.today.cacheHitRate === null ? "—" : new Intl.NumberFormat(void 0, { style: "percent", maximumFractionDigits: 1 }).format(selectedSeries.totals.today.cacheHitRate)
 						})]
 					}),
 					(0, react_jsx_runtime.jsxs)("div", {
@@ -905,7 +993,7 @@ window.__ModuleLoader__.load({
 								children: t("usage.daily")
 							}), (0, react_jsx_runtime.jsx)("span", {
 								style: { display: "block", fontSize: 11, lineHeight: "16px", color: "var(--dsw-alias-label-secondary)" },
-								children: `${formatMonthName(selectedMonth)} · ${formatTokenCount(value.totals.selectedMonth.totalTokens)}`
+								children: `${formatMonthName(selectedMonth)} · ${formatTokenCount(selectedSeries.totals.selectedMonth.totalTokens)} · ${formatEstimatedCost(selectedSeries.totals.selectedMonth.estimatedCostCny)}`
 							})]
 						}), (0, react_jsx_runtime.jsxs)("div", {
 							style: { display: "flex", alignItems: "center", gap: 2 },
@@ -967,7 +1055,7 @@ window.__ModuleLoader__.load({
 									justifyContent: "flex-end",
 									alignItems: "center"
 								},
-								title: `${day.date}: ${day.totalTokens.toLocaleString()} ${t("usage.tokens")} · ${day.calls} ${t("usage.calls")}`,
+								title: `${day.date}: ${day.totalTokens.toLocaleString()} ${t("usage.tokens")} · ${formatEstimatedCost(day.estimatedCostCny)} · ${day.calls} ${t("usage.calls")}`,
 								children: [(0, react_jsx_runtime.jsx)("span", {
 									style: {
 										width: "100%",
@@ -991,6 +1079,13 @@ window.__ModuleLoader__.load({
 							}, day.date);
 						})]
 					}),
+					(0, react_jsx_runtime.jsx)(OfficialPricingBody, {
+						pricing: value.pricing,
+						selectedModel,
+						selectedPhase: selectedPricePhase,
+						onPhaseChange: onPricePhaseChange,
+						t
+					}),
 					(0, react_jsx_runtime.jsx)("p", {
 						style: {
 							margin: "8px 0 0",
@@ -1000,6 +1095,142 @@ window.__ModuleLoader__.load({
 						},
 						title: t("usage.scopeHint"),
 						children: `${t("usage.coverage")} · ${value.coverage.sessions}${value.coverage.failedSessions > 0 ? ` · ${value.coverage.failedSessions} ${t("usage.skipped")}` : ""}`
+					})
+				]
+			});
+		}
+		/** Official DeepSeek price table with the active and inspectable rate phases. */
+		function OfficialPricingBody({ pricing, selectedModel, selectedPhase, onPhaseChange, t }) {
+			const phase = selectedPhase ?? pricing.currentPhase;
+			const phases = ["legacy", "offPeak", "peak"];
+			const models = selectedModel === "all" ? pricing.models : pricing.models.filter((item) => item.model === selectedModel);
+			const modelName = (model) => model === "deepseek-v4-flash" ? t("usage.model.flash") : model === "deepseek-v4-pro" ? t("usage.model.pro") : model;
+			const formatRate = (value) => `¥${Number(value.toFixed(3))}`;
+			const effectiveDate = new Date(pricing.effectiveAt).toLocaleDateString(void 0, {
+				timeZone: pricing.timeZone,
+				year: "numeric",
+				month: "2-digit",
+				day: "2-digit"
+			});
+			const peakHours = pricing.peakPeriods.map((period) => `${period.start}–${period.end}`).join("、");
+			return (0, react_jsx_runtime.jsxs)("section", {
+				style: {
+					marginTop: 14,
+					paddingTop: 12,
+					borderTop: "1px solid var(--dsw-alias-border-l1)"
+				},
+				children: [
+					(0, react_jsx_runtime.jsxs)("div", {
+						style: {
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							gap: 8,
+							marginBottom: 8
+						},
+						children: [(0, react_jsx_runtime.jsx)("strong", {
+							style: { fontSize: 13, lineHeight: "18px", color: "var(--dsw-alias-label-primary)" },
+							children: t("pricing.title")
+						}), (0, react_jsx_runtime.jsxs)("span", {
+							style: {
+								display: "inline-flex",
+								alignItems: "center",
+								gap: 5,
+								fontSize: 10,
+								lineHeight: "16px",
+								color: pricing.currentPhase === "peak" ? "var(--dsw-alias-state-warn-primary)" : "var(--dsw-alias-state-success-primary)"
+							},
+							children: [(0, react_jsx_runtime.jsx)("span", {
+								style: { width: 6, height: 6, borderRadius: "50%", background: "currentColor" }
+							}), `${t("pricing.current")}${t(`pricing.phase.${pricing.currentPhase}`)}`]
+						})]
+					}),
+					(0, react_jsx_runtime.jsx)("div", {
+						role: "group",
+						"aria-label": t("pricing.select"),
+						style: {
+							display: "grid",
+							gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+							border: "1px solid var(--dsw-alias-border-l2)",
+							borderRadius: 7,
+							overflow: "hidden",
+							marginBottom: 9
+						},
+						children: phases.map((item, index) => {
+							const active = phase === item;
+							return (0, react_jsx_runtime.jsx)("button", {
+								type: "button",
+								style: {
+									height: 32,
+									padding: "0 6px",
+									border: "none",
+									borderLeft: index === 0 ? "none" : "1px solid var(--dsw-alias-border-l2)",
+									background: active ? "var(--dsw-static-blue-450)" : "var(--dsw-alias-button-elevated-fill)",
+									color: active ? "white" : "var(--dsw-alias-label-primary)",
+									font: "inherit",
+									fontSize: 11,
+									fontWeight: active ? 650 : 500,
+									cursor: "pointer"
+								},
+								onClick: () => onPhaseChange(item),
+								children: t(`pricing.phase.${item}`)
+							}, item);
+						})
+					}),
+					(0, react_jsx_runtime.jsxs)("div", {
+						style: {
+							display: "grid",
+							gridTemplateColumns: "minmax(74px, 1.1fr) repeat(3, minmax(0, 1fr))",
+							alignItems: "center",
+							fontSize: 10,
+							lineHeight: "15px"
+						},
+						children: [
+							(0, react_jsx_runtime.jsx)("span", {
+								style: { color: "var(--dsw-alias-label-secondary)", padding: "3px 4px" },
+								children: t("pricing.model")
+							}),
+							(0, react_jsx_runtime.jsx)("span", {
+								style: { color: "var(--dsw-alias-label-secondary)", textAlign: "right", padding: "3px 2px" },
+								children: t("pricing.cacheHit")
+							}),
+							(0, react_jsx_runtime.jsx)("span", {
+								style: { color: "var(--dsw-alias-label-secondary)", textAlign: "right", padding: "3px 2px" },
+								children: t("pricing.cacheMiss")
+							}),
+							(0, react_jsx_runtime.jsx)("span", {
+								style: { color: "var(--dsw-alias-label-secondary)", textAlign: "right", padding: "3px 2px" },
+								children: t("pricing.output")
+							}),
+							...models.flatMap((model) => {
+								const rates = model[phase];
+								return [
+									(0, react_jsx_runtime.jsx)("strong", {
+										style: { borderTop: "1px solid var(--dsw-alias-border-l1)", color: "var(--dsw-alias-label-primary)", padding: "6px 4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+										children: modelName(model.model)
+									}, `${model.model}-name`),
+									...[["cacheHit", rates.cacheHit], ["cacheMiss", rates.cacheMiss], ["output", rates.output]].map(([key, number]) => (0, react_jsx_runtime.jsx)("span", {
+										style: { borderTop: "1px solid var(--dsw-alias-border-l1)", color: "var(--dsw-alias-label-primary)", textAlign: "right", padding: "6px 2px", fontVariantNumeric: "tabular-nums" },
+										title: `${formatRate(number)} / ${pricing.unitTokens.toLocaleString()} ${t("usage.tokens")}`,
+										children: formatRate(number)
+									}, `${model.model}-${key}`))
+								];
+							})
+						]
+					}),
+					(0, react_jsx_runtime.jsxs)("p", {
+						style: { margin: "8px 0 0", fontSize: 10, lineHeight: "16px", color: "var(--dsw-alias-label-secondary)" },
+						children: [`${t("pricing.unit")} · ${t("pricing.peakHours")} ${peakHours} · ${t("pricing.offPeakRest")}`, (0, react_jsx_runtime.jsx)("br", {}), `${t("pricing.effectiveAt")} ${effectiveDate} 00:00`]
+					}),
+					(0, react_jsx_runtime.jsxs)("p", {
+						style: { margin: "5px 0 0", fontSize: 10, lineHeight: "16px", color: "var(--dsw-alias-label-secondary)" },
+						children: [t("pricing.estimateHint"), " · ", (0, react_jsx_runtime.jsx)("a", {
+							href: pricing.sourceUrl,
+							target: "_blank",
+							rel: "noreferrer",
+							style: { color: "var(--dsw-static-blue-450)", textDecoration: "none" },
+							children: t("pricing.source")
+						})]
 					})
 				]
 			});
@@ -1035,6 +1266,10 @@ window.__ModuleLoader__.load({
 			"balance.detail": "余额详情",
 			"balance.detailHint": "DeepSeek 账户余额与本机 DSH 用量",
 			"usage.title": "Token 用量",
+			"usage.model.select": "选择模型",
+			"usage.model.all": "全部",
+			"usage.model.flash": "V4 Flash",
+			"usage.model.pro": "V4 Pro",
 			"usage.loading": "正在汇总本机用量…",
 			"usage.today": "今日",
 			"usage.week": "本周",
@@ -1049,7 +1284,23 @@ window.__ModuleLoader__.load({
 			"usage.calls": "次调用",
 			"usage.coverage": "本机保留会话",
 			"usage.skipped": "个未纳入",
-			"usage.scopeHint": "仅统计本机保留的 DSH 会话；不包含已删除日志或其他客户端的 API 调用。"
+			"usage.scopeHint": "仅统计本机保留的 DSH 会话；不包含已删除日志或其他客户端的 API 调用。",
+			"pricing.title": "DeepSeek 官方模型价格",
+			"pricing.current": "当前：",
+			"pricing.select": "选择价格时段",
+			"pricing.phase.legacy": "生效前",
+			"pricing.phase.offPeak": "空闲",
+			"pricing.phase.peak": "高峰",
+			"pricing.model": "模型",
+			"pricing.cacheHit": "命中输入",
+			"pricing.cacheMiss": "未命中",
+			"pricing.output": "输出",
+			"pricing.unit": "人民币 / 百万 Token",
+			"pricing.peakHours": "北京时间高峰",
+			"pricing.offPeakRest": "其余为空闲时段",
+			"pricing.effectiveAt": "峰谷价生效：",
+			"pricing.estimateHint": "费用按实际调用时刻估算，账单以官方为准",
+			"pricing.source": "官方价格页"
 		};
 		/** English dictionary, checked complete against the zh key set. */
 		const en = {
@@ -1079,6 +1330,10 @@ window.__ModuleLoader__.load({
 			"balance.detail": "Balance details",
 			"balance.detailHint": "DeepSeek account balance and local DSH usage",
 			"usage.title": "Token usage",
+			"usage.model.select": "Select model",
+			"usage.model.all": "All",
+			"usage.model.flash": "V4 Flash",
+			"usage.model.pro": "V4 Pro",
 			"usage.loading": "Summarizing local usage…",
 			"usage.today": "Today",
 			"usage.week": "This week",
@@ -1093,7 +1348,23 @@ window.__ModuleLoader__.load({
 			"usage.calls": "calls",
 			"usage.coverage": "Retained local sessions",
 			"usage.skipped": "skipped",
-			"usage.scopeHint": "Counts retained local DSH sessions only; deleted logs and API calls from other clients are not included."
+			"usage.scopeHint": "Counts retained local DSH sessions only; deleted logs and API calls from other clients are not included.",
+			"pricing.title": "Official DeepSeek pricing",
+			"pricing.current": "Current: ",
+			"pricing.select": "Select price period",
+			"pricing.phase.legacy": "Before change",
+			"pricing.phase.offPeak": "Off-peak",
+			"pricing.phase.peak": "Peak",
+			"pricing.model": "Model",
+			"pricing.cacheHit": "Cache hit",
+			"pricing.cacheMiss": "Cache miss",
+			"pricing.output": "Output",
+			"pricing.unit": "CNY per 1M tokens",
+			"pricing.peakHours": "Beijing peak",
+			"pricing.offPeakRest": "all other hours are off-peak",
+			"pricing.effectiveAt": "Peak pricing starts:",
+			"pricing.estimateHint": "Estimated by call time; the official bill is authoritative",
+			"pricing.source": "Official pricing"
 		};
 		//#endregion
 		//#region lib/types/client/index.js

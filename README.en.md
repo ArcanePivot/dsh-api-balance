@@ -1,8 +1,8 @@
 <h1 align="center">API $$</h1>
 
-<p align="center"><strong>Your DeepSeek API balance and local Token usage, always visible in the DSH sidebar.</strong></p>
+<p align="center"><strong>Your DeepSeek API balance, per-model Token usage, and cost estimates in the DSH sidebar.</strong></p>
 
-<p align="center">No dashboard switching. No API key in the browser. See today, this week, this month, and all-time usage in one click.</p>
+<p align="center">See what V4 Flash and V4 Pro used and cost by price period without exposing the API key to the browser.</p>
 
 <p align="center">
   <a href="README.md">简体中文</a> ·
@@ -51,6 +51,9 @@ The screenshots come from a live DSH Web UI. Balance and usage values are synthe
 - `API 余额` in Simplified Chinese and `API Balance` in English
 - Warning color below `20 CNY`
 - Today, this week, this month, and all-time Token totals; weeks start on Monday
+- Select `All / V4 Flash / V4 Pro` to inspect Token totals, calls, and daily trends separately
+- Estimate period costs from the official CNY rate effective when each call occurred
+- Inspect the before-change, off-peak, and peak prices with the active phase, Beijing peak windows, and official source shown in the panel
 - Today's cache-hit rate and a month-switchable daily usage bar chart
 - Backfill from retained local DSH sessions without double-counting forked history
 - Manual refresh, outside-click close, and `Esc` close
@@ -118,12 +121,14 @@ No API key in request                 GET {baseURL}/user/balance
 
 POST /api/llm.usage    ----------->  Read retained local DSH session logs
 Month + browser timezone              Aggregate locally; no external request
-                        <-----------  Return dates, Token totals, and coverage
+                        <-----------  Return per-model Tokens, estimated costs, dates, and coverage
 ```
 
 The host reads `baseURL`, `apiKeyEnv`, and the API key from the `llm-deepseek` settings and DSH credentials service. If a custom `baseURL` is configured, the host sends the key to that endpoint, matching the DeepSeek adapter behavior. Use only endpoints you trust.
 
-Usage is grouped in the browser's timezone, and each week begins Monday at midnight. It covers retained local DSH sessions only: deleted logs and calls made by other clients are excluded, so it is not a replacement for the official DeepSeek billing dashboard. The first open backfills retained sessions; unchanged sessions are cached for the lifetime of the current DSH process.
+Usage is grouped in the browser's timezone, and each week begins Monday at midnight. The model comes from each recorded DSH response source. Cost separates cache-hit input, cache-miss input, and output Tokens, then applies the [official DeepSeek CNY rate](https://api-docs.deepseek.com/quick_start/pricing/) effective at the call time. Before 2026-08-16 16:00 UTC it uses the previous flat price; afterward, peak windows are 01:00–04:00 and 06:00–10:00 UTC and all other hours are off-peak.
+
+These figures cover retained local DSH sessions only: deleted logs and calls made by other clients are excluded, so this is not the official billing ledger. Prices can change; the project uses a versioned table with a dated official source, and the provider bill remains authoritative. The first open backfills retained sessions; unchanged sessions are cached for the lifetime of the current DSH process.
 
 Balance and usage totals are account information. Anyone who can access the DSH Web UI can view them after installation, although they cannot view the API key, prompts, or response text. Keep the existing DSH access controls in place and read the [security notes](SECURITY.md).
 
@@ -167,7 +172,7 @@ CI and the local verifier:
 - Fetch the official `0.1.0-rc.6` packages from npm
 - Verify that both minimal patches apply cleanly
 - Compare the patched official files byte-for-byte with `files/`
-- Exercise cross-session aggregation, Monday week boundaries, timezones, leap years, cache totals, and fork deduplication
+- Exercise per-model usage, price switchover and peak boundaries, Monday weeks, timezones, leap years, cache totals, and fork deduplication
 - Exercise macOS install, idempotency, uninstall, rollback, and tamper guards
 - Parse Bash, PowerShell, and JavaScript and scan for common secrets and personal paths
 

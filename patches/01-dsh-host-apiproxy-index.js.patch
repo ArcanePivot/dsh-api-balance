@@ -1,22 +1,60 @@
 diff --git a/lib/index.js b/lib/index.js
-index 9e3afa7..e6de25a 100644
+index 9e3afa7..5ce4468 100644
 --- a/lib/index.js
 +++ b/lib/index.js
-@@ -1695,6 +1695,162 @@ function changedWorkspaceView(workspaceId, value) {
+@@ -1695,6 +1695,270 @@ function changedWorkspaceView(workspaceId, value) {
  		updatedAt: record.updatedAt
  	};
  }
 +//#region dsh-api-balance/usage-analytics.js
 +/** Provider route whose locally recorded usage belongs beside the DeepSeek balance. */
 +const DEEPSEEK_USAGE_PROVIDER = "deepseek-official";
-+/** Empty provider-reported token buckets plus a model-call count. */
++/** Current official model order used by analytics and pricing controls. */
++const DEEPSEEK_USAGE_MODELS = ["deepseek-v4-flash", "deepseek-v4-pro"];
++/** Official CNY price source and the announced peak/off-peak switchover. */
++const DEEPSEEK_PRICING_SOURCE_URL = "https://api-docs.deepseek.com/zh-cn/quick_start/pricing/";
++const DEEPSEEK_PRICING_SOURCE_UPDATED_AT = "2026-08-13";
++const DEEPSEEK_PRICING_EFFECTIVE_AT = Date.parse("2026-08-16T16:00:00Z");
++const DEEPSEEK_PRICING = {
++	legacy: {
++		"deepseek-v4-flash": { cacheHit: 0.02, cacheMiss: 1, output: 2 },
++		"deepseek-v4-pro": { cacheHit: 0.025, cacheMiss: 3, output: 6 }
++	},
++	offPeak: {
++		"deepseek-v4-flash": { cacheHit: 0.05, cacheMiss: 1.5, output: 4.5 },
++		"deepseek-v4-pro": { cacheHit: 0.15, cacheMiss: 4.5, output: 13.5 }
++	},
++	peak: {
++		"deepseek-v4-flash": { cacheHit: 0.1, cacheMiss: 3, output: 9 },
++		"deepseek-v4-pro": { cacheHit: 0.3, cacheMiss: 9, output: 27 }
++	}
++};
++/** Official phase at one instant: old flat price, then UTC peak windows. */
++function deepSeekPricingPhase(time) {
++	if (time < DEEPSEEK_PRICING_EFFECTIVE_AT) return "legacy";
++	const hour = new Date(time).getUTCHours();
++	return hour >= 1 && hour < 4 || hour >= 6 && hour < 10 ? "peak" : "offPeak";
++}
++/** One official CNY rate row for a supported model and instant. */
++function deepSeekPriceAt(model, time) {
++	const phase = deepSeekPricingPhase(time);
++	const rates = DEEPSEEK_PRICING[phase]?.[model];
++	return rates === void 0 ? void 0 : { phase, rates };
++}
++/** Empty provider-reported token, call, and estimated-cost buckets. */
 +function emptyUsageBuckets() {
 +	return {
 +		uncachedInputTokens: 0,
 +		outputTokens: 0,
 +		cacheReadTokens: 0,
 +		cacheWriteTokens: 0,
-+		calls: 0
++		calls: 0,
++		cacheHitCostCny: 0,
++		cacheMissCostCny: 0,
++		outputCostCny: 0,
++		estimatedCostCny: 0,
++		pricedCalls: 0,
++		unpricedCalls: 0
 +	};
 +}
 +/** Normalize one trusted DSH TokenUsage value into the four disjoint buckets. */
@@ -37,13 +75,40 @@ index 9e3afa7..e6de25a 100644
 +	target.cacheReadTokens += source.cacheReadTokens;
 +	target.cacheWriteTokens += source.cacheWriteTokens;
 +	target.calls += source.calls;
++	target.cacheHitCostCny += source.cacheHitCostCny;
++	target.cacheMissCostCny += source.cacheMissCostCny;
++	target.outputCostCny += source.outputCostCny;
++	target.estimatedCostCny += source.estimatedCostCny;
++	target.pricedCalls += source.pricedCalls;
++	target.unpricedCalls += source.unpricedCalls;
 +	return target;
++}
++/** Attach the official rate effective at the sample time without mutating it. */
++function pricedUsageBuckets(sample) {
++	const result = { ...emptyUsageBuckets(), ...sample.buckets };
++	const pricing = deepSeekPriceAt(sample.model, sample.time);
++	if (pricing === void 0) {
++		result.unpricedCalls = sample.buckets.calls;
++		return result;
++	}
++	const perMillion = 1e6;
++	result.cacheHitCostCny = sample.buckets.cacheReadTokens * pricing.rates.cacheHit / perMillion;
++	result.cacheMissCostCny = (sample.buckets.uncachedInputTokens + sample.buckets.cacheWriteTokens) * pricing.rates.cacheMiss / perMillion;
++	result.outputCostCny = sample.buckets.outputTokens * pricing.rates.output / perMillion;
++	result.estimatedCostCny = result.cacheHitCostCny + result.cacheMissCostCny + result.outputCostCny;
++	result.pricedCalls = sample.buckets.calls;
++	return result;
 +}
 +/** Browser-safe usage view, including total processed tokens and cache-hit ratio. */
 +function usageBucketsView(buckets) {
 +	const promptTokens = buckets.uncachedInputTokens + buckets.cacheReadTokens + buckets.cacheWriteTokens;
++	const money = (value) => Number(value.toFixed(12));
 +	return {
 +		...buckets,
++		cacheHitCostCny: money(buckets.cacheHitCostCny),
++		cacheMissCostCny: money(buckets.cacheMissCostCny),
++		outputCostCny: money(buckets.outputCostCny),
++		estimatedCostCny: money(buckets.estimatedCostCny),
 +		totalTokens: promptTokens + buckets.outputTokens,
 +		cacheHitRate: promptTokens === 0 ? null : buckets.cacheReadTokens / promptTokens
 +	};
@@ -59,18 +124,24 @@ index 9e3afa7..e6de25a 100644
 +	const inheritedLength = Number.isSafeInteger(meta?.seedLength) && meta.seedLength > 0 ? meta.seedLength : 0;
 +	const samples = /* @__PURE__ */ new Map();
 +	let currentProvider;
++	let currentModel;
 +	for (const event of events) {
 +		if (event.type === "request/header") {
 +			const configured = event.data?.header?.config?.provider;
 +			if (typeof configured === "string" && configured.length > 0) currentProvider = configured;
++			const configuredModel = event.data?.header?.config?.model;
++			if (typeof configuredModel === "string" && configuredModel.length > 0) currentModel = configuredModel;
 +		} else if (event.type === "request/context") {
 +			const configured = event.data?.provider;
 +			if (typeof configured === "string" && configured.length > 0) currentProvider = configured;
++			const configuredModel = event.data?.model;
++			if (typeof configuredModel === "string" && configuredModel.length > 0) currentModel = configuredModel;
 +		}
 +		let turn;
 +		let step;
 +		let usage;
 +		let sampleProvider = currentProvider;
++		let sampleModel = currentModel;
 +		if (event.type === "assistant/chunk" && event.data?.chunk?.type === "usage") {
 +			({ turn, step } = event.data);
 +			usage = event.data.chunk.usage;
@@ -78,12 +149,15 @@ index 9e3afa7..e6de25a 100644
 +			({ turn, step, usage } = event.data);
 +			const messageProvider = event.data.message?.source?.provider;
 +			if (typeof messageProvider === "string" && messageProvider.length > 0) sampleProvider = messageProvider;
++			const messageModel = event.data.message?.source?.model;
++			if (typeof messageModel === "string" && messageModel.length > 0) sampleModel = messageModel;
 +		}
 +		if (usage === void 0 || !Number.isSafeInteger(turn) || !Number.isSafeInteger(step)) continue;
 +		samples.set(`${turn}:${step}`, {
 +			seq: event.seq,
 +			time: event.time,
 +			provider: sampleProvider,
++			model: typeof sampleModel === "string" && sampleModel.length > 0 ? sampleModel : "unknown",
 +			buckets: usageBucketsFrom(usage)
 +		});
 +	}
@@ -110,8 +184,8 @@ index 9e3afa7..e6de25a 100644
 +	date.setUTCDate(date.getUTCDate() - daysSinceMonday);
 +	return date.toISOString().slice(0, 10);
 +}
-+/** Aggregate retained local samples into headline totals and one month's bars. */
-+function aggregateDeepSeekUsage(samples, selectedMonth, timeZone, generatedAt = Date.now()) {
++/** Aggregate one model slice into headline totals and one month's bars. */
++function aggregateUsageSeries(samples, selectedMonth, timeZone, generatedAt) {
 +	const formatter = new Intl.DateTimeFormat("en-CA", {
 +		timeZone,
 +		year: "numeric",
@@ -132,21 +206,18 @@ index 9e3afa7..e6de25a 100644
 +	}));
 +	for (const sample of samples) {
 +		const key = usageDateKey(sample.time, formatter);
-+		addUsageBuckets(allTime, sample.buckets);
-+		if (key === todayKey) addUsageBuckets(today, sample.buckets);
-+		if (key >= currentWeekStart && key <= todayKey) addUsageBuckets(week, sample.buckets);
-+		if (key.startsWith(`${currentMonth}-`)) addUsageBuckets(month, sample.buckets);
++		const buckets = pricedUsageBuckets(sample);
++		addUsageBuckets(allTime, buckets);
++		if (key === todayKey) addUsageBuckets(today, buckets);
++		if (key >= currentWeekStart && key <= todayKey) addUsageBuckets(week, buckets);
++		if (key.startsWith(`${currentMonth}-`)) addUsageBuckets(month, buckets);
 +		if (key.startsWith(`${selectedMonth}-`)) {
-+			addUsageBuckets(selectedMonthTotal, sample.buckets);
++			addUsageBuckets(selectedMonthTotal, buckets);
 +			const day = Number(key.slice(-2));
-+			if (Number.isSafeInteger(day) && days[day - 1] !== void 0) addUsageBuckets(days[day - 1], sample.buckets);
++			if (Number.isSafeInteger(day) && days[day - 1] !== void 0) addUsageBuckets(days[day - 1], buckets);
 +		}
 +	}
 +	return {
-+		provider: DEEPSEEK_USAGE_PROVIDER,
-+		source: "local-retained-sessions",
-+		timeZone,
-+		generatedAt,
 +		today: todayKey,
 +		currentWeekStart,
 +		currentMonth,
@@ -161,11 +232,48 @@ index 9e3afa7..e6de25a 100644
 +		days: days.map((day) => ({ date: day.date, ...usageBucketsView(day) }))
 +	};
 +}
++/** Official pricing table sent to the browser for an inspectable price view. */
++function deepSeekPricingView(generatedAt) {
++	return {
++		currency: "CNY",
++		unitTokens: 1e6,
++		sourceUrl: DEEPSEEK_PRICING_SOURCE_URL,
++		sourceUpdatedAt: DEEPSEEK_PRICING_SOURCE_UPDATED_AT,
++		effectiveAt: DEEPSEEK_PRICING_EFFECTIVE_AT,
++		timeZone: "Asia/Shanghai",
++		currentPhase: deepSeekPricingPhase(generatedAt),
++		peakPeriods: [{ start: "09:00", end: "12:00" }, { start: "14:00", end: "18:00" }],
++		models: DEEPSEEK_USAGE_MODELS.map((model) => ({
++			model,
++			legacy: DEEPSEEK_PRICING.legacy[model],
++			offPeak: DEEPSEEK_PRICING.offPeak[model],
++			peak: DEEPSEEK_PRICING.peak[model]
++		}))
++	};
++}
++/** Aggregate retained local samples, preserving a complete per-model split. */
++function aggregateDeepSeekUsage(samples, selectedMonth, timeZone, generatedAt = Date.now()) {
++	const overall = aggregateUsageSeries(samples, selectedMonth, timeZone, generatedAt);
++	const extraModels = [...new Set(samples.map((sample) => sample.model).filter((model) => !DEEPSEEK_USAGE_MODELS.includes(model)))].sort();
++	const models = [...DEEPSEEK_USAGE_MODELS, ...extraModels].map((model) => ({
++		model,
++		...aggregateUsageSeries(samples.filter((sample) => sample.model === model), selectedMonth, timeZone, generatedAt)
++	}));
++	return {
++		provider: DEEPSEEK_USAGE_PROVIDER,
++		source: "local-retained-sessions",
++		timeZone,
++		generatedAt,
++		...overall,
++		models,
++		pricing: deepSeekPricingView(generatedAt)
++	};
++}
 +//#endregion
  /**
  * Implement ApiProxy over a composed host context.
  * @param ctx - a context with the Host spine and Workspace registry mounted.
-@@ -1729,6 +1885,100 @@ function createApiProxy(ctx, defaults) {
+@@ -1729,6 +1993,100 @@ function createApiProxy(ctx, defaults) {
  	const pendingApprovals = /* @__PURE__ */ new Map();
  	const muxQueues = /* @__PURE__ */ new Set();
  	const imageAdmissionChains = /* @__PURE__ */ new WeakMap();
@@ -266,7 +374,7 @@ index 9e3afa7..e6de25a 100644
  	/** Serialize image admission with model selection for one agent. */
  	function serializeImageAdmission(agent, operation) {
  		const result = (imageAdmissionChains.get(agent) ?? Promise.resolve()).then(operation);
-@@ -3607,7 +3857,153 @@ function createApiProxy(ctx, defaults) {
+@@ -3607,7 +3965,153 @@ function createApiProxy(ctx, defaults) {
  						}
  					});
  				}
@@ -421,7 +529,7 @@ index 9e3afa7..e6de25a 100644
  		},
  		events: {
  			mux(_request, signal) {
-@@ -4586,6 +4982,85 @@ const llmDiscoverModelsRequestSchema = z$1.object({
+@@ -4586,6 +5090,111 @@ const llmDiscoverModelsRequestSchema = z$1.object({
  });
  /** llm.discoverModels response value. */
  const llmDiscoverModelsValueSchema = z$1.object({ models: z$1.array(discoveredModelViewSchema) });
@@ -437,15 +545,17 @@ index 9e3afa7..e6de25a 100644
 +	cacheReadTokens: z$1.number().int().nonnegative(),
 +	cacheWriteTokens: z$1.number().int().nonnegative(),
 +	calls: z$1.number().int().nonnegative(),
++	cacheHitCostCny: z$1.number().nonnegative(),
++	cacheMissCostCny: z$1.number().nonnegative(),
++	outputCostCny: z$1.number().nonnegative(),
++	estimatedCostCny: z$1.number().nonnegative(),
++	pricedCalls: z$1.number().int().nonnegative(),
++	unpricedCalls: z$1.number().int().nonnegative(),
 +	totalTokens: z$1.number().int().nonnegative(),
 +	cacheHitRate: z$1.number().min(0).max(1).nullable()
 +});
-+/** llm.usage local-session analytics response. */
-+const llmUsageValueSchema = z$1.object({
-+	provider: z$1.literal("deepseek-official"),
-+	source: z$1.literal("local-retained-sessions"),
-+	timeZone: z$1.string().min(1),
-+	generatedAt: z$1.number(),
++/** Reusable totals and daily bars for the all-model or one-model view. */
++const usageSeriesViewSchema = z$1.object({
 +	today: z$1.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 +	currentWeekStart: z$1.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 +	currentMonth: z$1.string().regex(/^\d{4}-\d{2}$/),
@@ -457,16 +567,40 @@ index 9e3afa7..e6de25a 100644
 +		allTime: usageBucketsViewSchema,
 +		selectedMonth: usageBucketsViewSchema
 +	}),
-+	days: z$1.array(z$1.object({
-+		date: z$1.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-+		uncachedInputTokens: z$1.number().int().nonnegative(),
-+		outputTokens: z$1.number().int().nonnegative(),
-+		cacheReadTokens: z$1.number().int().nonnegative(),
-+		cacheWriteTokens: z$1.number().int().nonnegative(),
-+		calls: z$1.number().int().nonnegative(),
-+		totalTokens: z$1.number().int().nonnegative(),
-+		cacheHitRate: z$1.number().min(0).max(1).nullable()
-+	})).max(31),
++	days: z$1.array(usageBucketsViewSchema.extend({ date: z$1.string().regex(/^\d{4}-\d{2}-\d{2}$/) })).max(31)
++});
++/** One official per-million CNY price row. */
++const deepSeekPriceRatesSchema = z$1.object({
++	cacheHit: z$1.number().nonnegative(),
++	cacheMiss: z$1.number().nonnegative(),
++	output: z$1.number().nonnegative()
++});
++/** llm.usage local-session analytics response. */
++const llmUsageValueSchema = usageSeriesViewSchema.extend({
++	provider: z$1.literal("deepseek-official"),
++	source: z$1.literal("local-retained-sessions"),
++	timeZone: z$1.string().min(1),
++	generatedAt: z$1.number(),
++	models: z$1.array(usageSeriesViewSchema.extend({ model: z$1.string().min(1) })),
++	pricing: z$1.object({
++		currency: z$1.literal("CNY"),
++		unitTokens: z$1.literal(1e6),
++		sourceUrl: z$1.string().url(),
++		sourceUpdatedAt: z$1.string().regex(/^\d{4}-\d{2}-\d{2}$/),
++		effectiveAt: z$1.number(),
++		timeZone: z$1.literal("Asia/Shanghai"),
++		currentPhase: z$1.enum(["legacy", "offPeak", "peak"]),
++		peakPeriods: z$1.array(z$1.object({
++			start: z$1.string().regex(/^\d{2}:\d{2}$/),
++			end: z$1.string().regex(/^\d{2}:\d{2}$/)
++		})).length(2),
++		models: z$1.array(z$1.object({
++			model: z$1.enum(["deepseek-v4-flash", "deepseek-v4-pro"]),
++			legacy: deepSeekPriceRatesSchema,
++			offPeak: deepSeekPriceRatesSchema,
++			peak: deepSeekPriceRatesSchema
++		})).length(2)
++	}),
 +	coverage: z$1.object({
 +		sessions: z$1.number().int().nonnegative(),
 +		failedSessions: z$1.number().int().nonnegative(),
@@ -507,7 +641,7 @@ index 9e3afa7..e6de25a 100644
  //#endregion
  //#region lib/types/api/subagents.schema.js
  /** Zod schemas for the browser-safe subagent domain. */
-@@ -4874,7 +5349,15 @@ const UNARY_ROUTES = {
+@@ -4874,7 +5483,15 @@ const UNARY_ROUTES = {
  	"llm.discoverModels": {
  		schema: llmDiscoverModelsRequestSchema,
  		invoke: (api, r, signal) => api.llm.discoverModels(r, signal)
@@ -524,7 +658,7 @@ index 9e3afa7..e6de25a 100644
  };
  /** Route lookup that narrows an arbitrary path segment to a map key (single cast point for the string→key refinement). */
  function methodFor(path) {
-@@ -5290,7 +5773,9 @@ const UNARY_VALUE_SCHEMAS = {
+@@ -5290,7 +5907,9 @@ const UNARY_VALUE_SCHEMAS = {
  	"credentials.unset": credentialsUnsetValueSchema,
  	"llm.providers": llmProvidersValueSchema,
  	"llm.models": llmModelsValueSchema,
@@ -535,7 +669,7 @@ index 9e3afa7..e6de25a 100644
  };
  /** Default timeout for bounded unary calls (rpc-compare 2026-07-19: a hung host must not leave callers pending forever). */
  const DEFAULT_TIMEOUT_MS = 3e4;
-@@ -5518,7 +6003,9 @@ var AbstractApiClient = class {
+@@ -5518,7 +6137,9 @@ var AbstractApiClient = class {
  	llm = {
  		providers: (payload, signal) => this.callUnary("llm.providers", payload, signal),
  		models: (payload, signal) => this.callUnary("llm.models", payload, signal),

@@ -81,7 +81,7 @@ cmp "$sidebar_target" "$old_sidebar"
 run_project "$project/install.sh" >/dev/null
 cmp "$host_target" "$project/files/dsh-host-apiproxy/lib/index.js"
 cmp "$sidebar_target" "$project/files/dsh-client-ui-sidebar/lib/client.js"
-node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(value.patchVersion!=="0.3.0") process.exit(1)' \
+node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(value.patchVersion!=="0.4.0-rc.1") process.exit(1)' \
   "$project/backup-macos/manifest.json"
 
 run_project "$project/uninstall.sh" --dry-run >/dev/null
