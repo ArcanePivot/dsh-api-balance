@@ -38,6 +38,20 @@ if ($matchingTargets.Count -eq $entries.Count) {
     }
     $manifest = Get-DshApiBalanceManifest $backupRoot
     Assert-DshApiBalanceManifest -Manifest $manifest -Install $install -Entries $entries
+    if ([string]$manifest.patchVersion -ne $script:DshApiBalanceVersion) {
+        if (-not $PSCmdlet.ShouldProcess($backupRoot, "Promote dsh-api-balance metadata to $script:DshApiBalanceVersion")) {
+            return
+        }
+        $manifest.patchVersion = $script:DshApiBalanceVersion
+        $manifest.lastInstalledAtUtc = [DateTime]::UtcNow.ToString("o")
+        foreach ($entry in $entries) {
+            $record = $manifest.files | Where-Object { $_.path -eq $entry.RelativePath } | Select-Object -First 1
+            $record.patchedSha256 = Get-DshApiBalanceSha256 $entry.Source
+        }
+        Write-DshApiBalanceJson -Path (Join-Path $backupRoot "manifest.json") -Value $manifest
+        Write-Host "The installed files already match; promoted backup metadata to $script:DshApiBalanceVersion."
+        exit 0
+    }
     Write-Host "dsh-api-balance is already installed; no files changed."
     exit 0
 }

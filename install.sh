@@ -65,6 +65,30 @@ if [ "$matching_targets" -eq "$entry_count" ]; then
     dsh_balance_die "patched files are installed but backup-macos/ is missing; reinstall DSH $DSH_API_BALANCE_SUPPORTED_DSH_VERSION cleanly first"
   fi
   dsh_balance_validate_backup
+  installed_patch_version="$(node -e 'const fs=require("fs"); const value=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(String(value.patchVersion || ""))' "$DSH_API_BALANCE_BACKUP_ROOT/manifest.json")"
+  if [ "$installed_patch_version" != "$DSH_API_BALANCE_VERSION" ]; then
+    if [ "$dry_run" -eq 1 ]; then
+      printf 'Dry run passed. Would promote backup metadata from API $$ %s to %s; installed files already match.\n' \
+        "${installed_patch_version:-unknown}" "$DSH_API_BALANCE_VERSION"
+      exit 0
+    fi
+    mark_arguments=(
+      "mark-installed"
+      "$DSH_API_BALANCE_BACKUP_ROOT/manifest.json"
+      "$DSH_API_BALANCE_VERSION"
+    )
+    index=0
+    while [ "$index" -lt "$entry_count" ]; do
+      mark_arguments+=(
+        "$(dsh_balance_relative_path "$index")"
+        "$(dsh_balance_source_path "$index")"
+      )
+      index=$((index + 1))
+    done
+    node "$DSH_API_BALANCE_MANIFEST_TOOL" "${mark_arguments[@]}"
+    printf 'Installed files already match; promoted backup metadata to API $$ %s.\n' "$DSH_API_BALANCE_VERSION"
+    exit 0
+  fi
   printf 'API $$ is already installed; no files changed.\n'
   exit 0
 fi

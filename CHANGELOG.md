@@ -4,6 +4,8 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-15
+
 ### Added
 
 - `全部 / V4 Flash / V4 Pro` 三档可点选用量视图，每档独立显示今日、本周、本月、累计 Token 与每日柱状图
@@ -15,6 +17,7 @@
 - 费用按每次请求实际发生时间选择价档：2026-08-17 00:00（北京时间）前使用旧价，之后按两个高峰窗口与空闲窗口计算
 - 缓存命中、缓存未命中和输出分别计价；DSH 的 `outputTokens` 已包含思考 Token，不重复叠加 `reasoningTokens`
 - 无官方价格的未知模型保留 Token 统计并标为未计价，不伪造费用
+- 候选版文件与正式版相同时，安装器只提升备份清单版本，不重复覆盖目标文件；预检模式仍保持零写入
 
 ### Privacy
 
@@ -72,6 +75,7 @@
 - Windows 10 / 11
 - macOS，Bash 3.2 或更新版本
 
-[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/ArcanePivot/dsh-api-balance/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.2.0

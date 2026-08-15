@@ -7,7 +7,7 @@
 <p align="center">
   <strong>简体中文</strong> ·
   <a href="README.en.md">English</a> ·
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.3.0">v0.3.0</a> ·
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0">v0.4.0</a> ·
   <a href="#快速安装">快速安装</a> ·
   <a href="INSTALL.md">完整安装手册</a> ·
   <a href="SECURITY.md">安全说明</a> ·
@@ -16,14 +16,14 @@
 
 <p align="center">
   <a href="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml"><img src="https://github.com/ArcanePivot/dsh-api-balance/actions/workflows/verify.yml/badge.svg" alt="Verify patches"></a>
-  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.3.0"><img src="https://img.shields.io/badge/release-v0.3.0-16a34a?style=flat-square" alt="v0.3.0 release"></a>
+  <a href="https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0"><img src="https://img.shields.io/badge/release-v0.4.0-16a34a?style=flat-square" alt="v0.4.0 release"></a>
   <img src="https://img.shields.io/badge/DSH-0.1.0--rc.6%20only-111827?style=flat-square" alt="DSH 0.1.0-rc.6 only">
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS-2563eb?style=flat-square" alt="Windows and macOS">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-16a34a?style=flat-square" alt="MIT License"></a>
 </p>
 
 > [!IMPORTANT]
-> `v0.3.0` 仅支持 **`@deepseek-ai/dsh@0.1.0-rc.6`**。这是非官方、版本锁定的补丁包，不是原生 Cordis 插件；安装器遇到其他 DSH 版本或已被修改的目标文件会拒绝执行。
+> `v0.4.0` 仅支持 **`@deepseek-ai/dsh@0.1.0-rc.6`**。这是非官方、版本锁定的补丁包，不是原生 Cordis 插件；安装器遇到其他 DSH 版本或已被修改的目标文件会拒绝执行。
 
 ## 实际效果
 
@@ -75,11 +75,11 @@ npm install -g @deepseek-ai/dsh@0.1.0-rc.6
 ### 2. 获取项目
 
 ```sh
-git clone --branch v0.3.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
+git clone --branch v0.4.0 --depth 1 https://github.com/ArcanePivot/dsh-api-balance.git
 cd dsh-api-balance
 ```
 
-也可以从 [`v0.3.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.3.0) 下载源码包并在解压目录中执行下列命令。固定版本可以避免以后 `main` 更新时意外安装尚未发布的代码。
+也可以从 [`v0.4.0` 发布页](https://github.com/ArcanePivot/dsh-api-balance/releases/tag/v0.4.0) 下载源码包并在解压目录中执行下列命令。固定版本可以避免以后 `main` 更新时意外安装尚未发布的代码。
 
 ### 3A. Windows
 
@@ -163,7 +163,7 @@ macOS：
 
 升级 DSH 前必须先卸载本补丁、恢复官方文件。不要把旧补丁重新套到新版本 DSH 上；等待本项目发布匹配的新版本。
 
-从 API $$ `v0.2.0` 升级时，推荐在原安装目录切换到 `v0.3.0` 后重跑安装器，这样能复用经过校验的官方备份；使用全新目录时应先用旧目录卸载。完整步骤见[安装手册](INSTALL.md#从-api--v020-升级)。
+从 API $$ `v0.2.0`、`v0.3.0` 或 `v0.4.0-rc.1` 升级时，推荐在原安装目录切换到 `v0.4.0` 后重跑安装器，这样能复用经过校验的官方备份；候选版文件已相同时只会提升备份清单版本。使用全新目录时应先用旧目录卸载。完整步骤见[安装手册](INSTALL.md#从旧版-api--升级)。
 
 ## 验证
 
