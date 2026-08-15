@@ -1067,6 +1067,7 @@ window.__ModuleLoader__.load({
 									}
 								}), (0, react_jsx_runtime.jsx)("span", {
 									style: {
+										display: "block",
 										width: 12,
 										height: 18,
 										paddingTop: 4,
