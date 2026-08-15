@@ -54,6 +54,7 @@ function Invoke-ExpectedFailure {
         & $Action
     } catch {
         if ([string]$_ -notmatch $Pattern) { throw }
+        $global:LASTEXITCODE = 0
         return
     }
     throw "Expected failure matching '$Pattern'."
